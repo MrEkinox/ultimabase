@@ -1,6 +1,8 @@
 // `@ultimabase/files` (D-152, D-202): file fields stored in an S3-compatible
 // storage, a disk or memory, uploaded with `POST /files`, and never an orphan.
 export type {
+	ByCaller,
+	Check,
 	FileField,
 	FileInput,
 	FileOf,
@@ -8,6 +10,7 @@ export type {
 	Inline,
 	InlineRun,
 	MadeVariant,
+	UploadFacts,
 	Variant,
 } from './field.ts'
 export type { Checked } from './lifecycle.ts'

@@ -128,6 +128,34 @@ it('refuses a large file', async () => {
 	//#endregion
 })
 
+it("applies the avatar's rules of the uploader's plan", async () => {
+	//#region plans
+	// A looping GIF: its header, then the NETSCAPE2.0 extension.
+	const gif = new TextEncoder().encode('GIF89a\x01\x00\x01\x00NETSCAPE2.0')
+	const animated = new File([gif], 'a.gif', { type: 'image/gif' })
+	// A visitor is on the free plan.
+	const refused = uploader({ url: running.url }).upload(animated, {
+		for: 'Post.avatar',
+	})
+	await expect(refused).rejects.toMatchObject({ code: 'ANIMATED_IMAGE' })
+	// Ada subscribes: she uploads it, and up to 5 MB.
+	const ada = { kind: 'user', user: { id: 'ada' } } as const
+	const options = { for: 'Post.avatar', name: 'a.gif', as: ada }
+	expect((await files.upload(gif, options)).id).toBeTypeOf('string')
+	//#endregion
+	const large = new File([png, new Uint8Array(500_000)], 'big.png', {
+		type: 'image/png',
+	})
+	await expect(
+		uploader({ url: running.url }).upload(large, { for: 'Post.avatar' }),
+	).rejects.toMatchObject({ code: 'PAYLOAD_TOO_LARGE' })
+	const { id } = await files.upload(new Uint8Array(await large.arrayBuffer()), {
+		...options,
+		name: 'big.png',
+	})
+	expect(id).toBeTypeOf('string')
+})
+
 it("refuses another field's id", async () => {
 	// An attachment's id, written as a cover.
 	const notes = await attachment('notes.txt', 'Bring the slides.')

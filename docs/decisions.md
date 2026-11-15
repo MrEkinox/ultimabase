@@ -9230,7 +9230,7 @@ type Stage {
 
 ## D-152: Files
 
-Amended by D-200, D-202, D-250, D-351, D-366 and D-400.
+Amended by D-200, D-202, D-250, D-351, D-366, D-400 and D-402.
 
 Choice: completes D-32 and D-122; amends D-32 (no `local()`), D-89 (a
 plugin model knows its name) and D-122 points 2 and 5.
@@ -24650,4 +24650,83 @@ const { customer, clock } = await sandbox.payer({
 await sandbox.client.subscriptions.create({ customer, items: [{ price }] })
 await sandbox.advance(clock, { days: 32 })
 await sandbox.deliver(test.url) // the renewal's events, then their jobs
+```
+
+## D-402: A file field's upload rules may depend on the caller
+
+Choice: amends D-152 (a file is checked once, at upload, against fixed
+options).
+
+1. A file field's `maxSize` and `accept` take their value, or a function of
+   `{ caller }` that returns it, sync or async. The caller is completed as a
+   rule receives it, Master included. Both run once `access.upload` passed
+   (D-351), before a byte of the body is read: an upload over the computed
+   size answers 413, a type outside the computed list 415, as with a fixed
+   value. A function that returns no byte count, or no list of types, is the
+   application's error: the upload answers 500.
+2. A new option, `check({ body, type, name, caller })`, runs once per
+   upload, after the body is read and its type detected, before any row or
+   object is written and before `inline` and `variants` run. It receives
+   what `inline` receives, and the caller. A `PublicError` it throws is the upload's answer;
+   anything else answers 500. A field with `check` buffers its body, as one
+   with `inline` or `variants` does. `files.refresh` (D-366) does not run it:
+   the file is already stored.
+3. What `check` refuses is the application's: an animated image, a PDF on
+   the free plan, a name it does not want. The plugin parses no format
+   beyond the type it detects.
+
+Why: an application sells plans, and the plan decides what a user uploads:
+5 MB on the free plan, 50 MB on a paid one, and an animated avatar only on
+a paid one. The field's fixed options could not say it, so the field took
+the largest size and a model hook refused the write: a free user's 50 MB
+were stored until the sweep, and the refusal came after the whole upload.
+
+Implicit choices:
+
+- The functions receive the caller only, not the row the file goes to: a
+  rule on the row, such as its owner's plan, stays in the model's hooks,
+  which see `size`, `type` and `inline`.
+- A pending file whose write a hook refuses is kept until the sweep, not
+  released at once: the client sends it again once it fixes another field.
+- `check` is generic: it receives the bytes, the detected type, the name
+  and the caller, so one function says any rule of the caller on the file.
+- Its argument is flat, as `inline`'s: a `file` key would shadow the `file`
+  import of every model file.
+
+Rejected:
+
+- `accept` alone for animated images: an animated WebP and a still one are
+  both `image/webp`, so only the bytes tell them apart.
+- A custom upload route that reads the plan, then uploads as Master: it
+  copies the transport, the client and the access rule of `files.upload`.
+- An `isAnimated(body)` in the plugin: it is one rule among those an
+  application writes in `check`, and an image library, such as `sharp` and
+  its `pages`, already answers it.
+
+Example:
+
+```ts
+// Before: the largest size on the field, the plan checked in a hook
+avatar: file({
+	accept: images,
+	maxSize: 50 * MB,
+	inline: {
+		animated: ({ body }) => isAnimated(body),
+	},
+})
+// ...and in User's beforeUpdate: refuse when free and file.size > 5 MB,
+// or when free and avatar.inline.animated, after the file was stored
+
+// After: isAnimated stays the application's, such as
+// (await sharp(body).metadata()).pages > 1
+avatar: file({
+	accept: images,
+	maxSize: async ({ caller }) =>
+		(await isSubscribed(caller)) ? 50 * MB : 5 * MB,
+	check: async ({ body, caller }) => {
+		if (isAnimated(body) && !(await isSubscribed(caller))) {
+			throw new PublicError('ANIMATED_IMAGE', 'Animated images need a plan.')
+		}
+	},
+})
 ```
