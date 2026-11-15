@@ -399,7 +399,7 @@ describe('stripe.syncCheckout', () => {
 })
 
 describe('stripe.portal', () => {
-	it('opens the portal, its change and cancel confirmations, and its payment method form', async () => {
+	it('opens the portal, its plan picker, its change and cancel confirmations, and its payment method form', async () => {
 		const ada = await signUp()
 		const id = await paid(
 			await stripe.checkout({
@@ -419,6 +419,7 @@ describe('stripe.portal', () => {
 			price: 'monthly',
 			returnUrl: 'https://app.test/plans',
 		})
+		await stripe.portal({ payer: ada, open: 'change' })
 		await stripe.portal({ payer: ada, open: 'cancel' })
 		await stripe.portal({ payer: ada, open: 'paymentMethod' })
 		const [portal] = fake.portals.keys()
@@ -432,9 +433,16 @@ describe('stripe.portal', () => {
 				returnUrl: 'https://app.test/plans',
 				flow: { kind: 'change', subscriptionId: id, lookupKey: 'team.monthly' },
 			},
+			// The plan picker: no price named (D-403).
+			{ flow: { kind: 'change', subscriptionId: id } },
 			{ flow: { kind: 'cancel', subscriptionId: id } },
 			{ flow: { kind: 'paymentMethod' } },
 		])
+		// No price at all: a lookup key would open a move, not the picker.
+		expect(fake.portalSessions[opened + 2]?.flow).toStrictEqual({
+			kind: 'change',
+			subscriptionId: id,
+		})
 	})
 
 	it('refuses a deep link without a live subscription, or an unknown page', async () => {
@@ -450,6 +458,12 @@ describe('stripe.portal', () => {
 				product: team,
 			}),
 		).rejects.toMatchObject({ code: 'NOT_SUBSCRIBED' })
+		await expect(
+			// @ts-expect-error: a price comes with its product (D-403).
+			stripe.portal({ payer: ada, open: 'change', price: 'monthly' }),
+		).rejects.toThrow(
+			'stripe.portal: price is a price of product; give product too.',
+		)
 		await expect(
 			// @ts-expect-error: a page the portal does not open.
 			stripe.portal({ payer: ada, open: 'invoices' }),

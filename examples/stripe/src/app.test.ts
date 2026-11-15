@@ -12,6 +12,7 @@ import {
 	buyGems,
 	cancelPage,
 	paid,
+	plansPage,
 	subscribe,
 	welcome,
 } from './shop.ts'
@@ -72,6 +73,7 @@ it('sells a subscription and gems, then spends the gems', async () => {
 	])
 	//#endregion
 	expect(await cancelPage(ada)).toMatch(/^https:\/\/billing\.stripe\.test\//)
+	expect(await plansPage(ada)).toMatch(/^https:\/\/billing\.stripe\.test\//)
 	//#region spend
 	// Back on the success page before the webhook: the gems are there, 100
 	// of the paid month and 500 of the pack.

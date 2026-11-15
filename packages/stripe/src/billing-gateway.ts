@@ -114,7 +114,8 @@ export type PortalFlow =
 	| {
 			readonly kind: 'change'
 			readonly subscriptionId: string
-			readonly lookupKey: string
+			/** The price it moves to; without one, the plan picker (D-403). */
+			readonly lookupKey?: string
 	  }
 	| { readonly kind: 'cancel'; readonly subscriptionId: string }
 	| { readonly kind: 'paymentMethod' }

@@ -108,6 +108,13 @@ async function flowOf(
 		return { type: 'payment_method_update', after_completion: after }
 	}
 	if (flow.kind === 'home') return undefined
+	if (flow.lookupKey === undefined) {
+		return {
+			type: 'subscription_update',
+			subscription_update: { subscription: flow.subscriptionId },
+			after_completion: after,
+		}
+	}
 	const subscription = await client.subscriptions.retrieve(flow.subscriptionId)
 	const [item] = subscription.items.data
 	if (item === undefined) throw new Error('The subscription has no item.')

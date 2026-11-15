@@ -229,7 +229,7 @@ arrives. It finds only the payer's own Checkout.
 `open` names:
 
 - `'change'`, with `product` and `price`, the confirmation of a move to
-  another product or price;
+  another product or price; without them, Stripe's plan picker;
 - `'cancel'`, the confirmation of a cancellation;
 - `'paymentMethod'`, the form that changes the payer's card, after a
   renewal that failed.
@@ -239,6 +239,14 @@ and take `subscription`, a row's id, when the payer has several.
 
 <include cwd meta='title="src/shop.ts"'>
 	../examples/stripe/src/shop.ts#portal
+</include>
+
+A « Change plan » button that names no plan opens the picker: the payer
+chooses among the prices the portal offers, those of the catalog's
+products.
+
+<include cwd meta='title="src/shop.ts"'>
+	../examples/stripe/src/shop.ts#plans
 </include>
 
 The portal's options, under `portal` in the catalog, set what it allows.

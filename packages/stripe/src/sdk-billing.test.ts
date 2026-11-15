@@ -692,7 +692,7 @@ describe('the portal', () => {
 		locale: null,
 	}
 
-	it('opens its home, a cancellation, a change keeping the quantity, and the payment method', async () => {
+	it('opens its home, a cancellation, a change keeping the quantity, the plan picker and the payment method', async () => {
 		const { gateway, requests } = gatewayOn(portalAnswer)
 		expect(
 			await gateway.openPortal({ ...portal, flow: { kind: 'home' } }),
@@ -713,6 +713,10 @@ describe('the portal', () => {
 			},
 		})
 		await gateway.openPortal({ ...portal, flow: { kind: 'paymentMethod' } })
+		await gateway.openPortal({
+			...portal,
+			flow: { kind: 'change', subscriptionId: 'sub_1' },
+		})
 		const sessions = requests.filter(
 			({ path }) => path === '/v1/billing_portal/sessions',
 		)
@@ -750,6 +754,17 @@ describe('the portal', () => {
 				return_url: 'https://app.test/account',
 				configuration: 'bpc_1',
 				'flow_data[type]': 'payment_method_update',
+				'flow_data[after_completion][type]': 'redirect',
+				'flow_data[after_completion][redirect][return_url]':
+					'https://app.test/account',
+			},
+			// The plan picker (D-403).
+			{
+				customer: 'cus_1',
+				return_url: 'https://app.test/account',
+				configuration: 'bpc_1',
+				'flow_data[type]': 'subscription_update',
+				'flow_data[subscription_update][subscription]': 'sub_1',
 				'flow_data[after_completion][type]': 'redirect',
 				'flow_data[after_completion][redirect][return_url]':
 					'https://app.test/account',
