@@ -184,6 +184,29 @@ describe('payer', () => {
 			stripeId: 'cus_1',
 		})
 	})
+
+	// Regression (#333): Stripe lists no customer on a test clock, so the
+	// sandbox finds its payers' customers itself. The helpers are taken out
+	// of the sandbox, which the lint's unbound-method refuses for methods.
+	it('makes customers customerOf finds by their address', async () => {
+		const listed: { id: string }[] = []
+		const { sandbox } = sandboxOn({
+			'POST /v1/test_helpers/test_clocks': { id: 'clock_1' },
+			'POST /v1/customers': { id: 'cus_1' },
+			'POST /v1/payment_methods/pm_card_visa/attach': { id: 'pm_1' },
+			'POST /v1/customers/cus_1': { id: 'cus_1' },
+			'GET /v1/customers': () => stripeList(listed),
+		})
+		const { email, payer, customerOf } = sandbox
+		const ada = await User.create({ data: { email: 'ada@example.com' } }, M)
+		await payer({ model: User, id: ada.id, email: email('ada') })
+		expect(await customerOf(email('ada'))).toBe('cus_1')
+		// Checkout made another customer of the address.
+		listed.push({ id: 'cus_2' })
+		await expect(customerOf(email('ada'))).rejects.toThrow(
+			`Stripe holds several customers of ${email('ada')}: expected one.`,
+		)
+	})
 })
 
 describe('advance', () => {
