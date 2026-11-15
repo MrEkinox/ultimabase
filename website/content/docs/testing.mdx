@@ -90,6 +90,8 @@ and the model:
   `write Invite, User`.
 - The queries of a [transaction](/docs/next/transactions) are listed; its
   begin and its commit are not.
+- A model is frozen: `vi.spyOn(Note, 'create')` throws. To count the calls
+  of a method, such as one `updateMany` per batch, count its entries here.
 
 ## On PostgreSQL
 
@@ -199,7 +201,9 @@ It returns, read during a test:
 ### `runJobs()`
 
 Runs, during a test, the [jobs](/docs/next/jobs#in-a-test) due now, and
-the runs they enqueue.
+the runs they enqueue. A run due now starts as its write commits, without
+waiting for it: check what a job did after `runJobs()`, which waits for the
+runs already started.
 
 ### Errors
 

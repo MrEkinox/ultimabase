@@ -182,11 +182,17 @@ A delayed run is due once the test moves the clock past its delay:
 	../examples/jobs/src/app.test.ts#run
 </include>
 
-And a recurring job, once the clock reaches its time:
+And a recurring job, once the clock reaches its time. The test goes through
+its schedule, its time zone included:
 
 <include cwd meta='title="src/app.test.ts"'>
 	../examples/jobs/src/app.test.ts#recurring
 </include>
+
+A run due now starts as its write commits, in a test as on a server, without
+waiting for `runJobs()`. Check what a job did after `runJobs()`, which waits
+for the runs already started, never its pending runs before it: the run may
+already be done.
 
 ## Reference
 
@@ -240,7 +246,8 @@ pending or failed run, and one for each recurring job.
 ### `runJobs()`
 
 Runs, during a test, every run due now and the runs they enqueue, then
-resolves.
+resolves. It waits for the runs already started: a run due now starts as its
+write commits.
 
 ### Errors
 
