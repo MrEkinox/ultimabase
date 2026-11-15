@@ -1,10 +1,18 @@
-// The model: a post with a cover image, public, and private text
-// attachments.
+// The model: a post with a cover image, public, private text attachments,
+// and an avatar whose rules depend on the uploader's plan.
 //#region imports
 import { file } from '@ultimabase/files'
 import { graphql } from '@ultimabase/graphql'
-import { allow, defineModel } from 'ultimabase'
+import type { Caller } from 'ultimabase'
+import { allow, defineModel, PublicError } from 'ultimabase'
 import { z } from 'zod'
+//#endregion
+
+//#region plans
+// Here a list; an application reads its subscriptions.
+const subscribers = new Set(['ada'])
+const subscribed = (caller: Caller) =>
+	caller.kind === 'user' && subscribers.has(caller.user.id)
 //#endregion
 
 export const Post = defineModel({
@@ -44,6 +52,25 @@ export const Post = defineModel({
 			},
 		}),
 		//#endregion
+		//#region avatar
+		avatar: file({
+			optional: true,
+			accept: ['image/png', 'image/gif'],
+			// 5 MB for a subscriber, 500 KB for anyone else, before the body
+			// is read.
+			maxSize: ({ caller }) => (subscribed(caller) ? 5_000_000 : 500_000),
+			// Once the file is read, before it is stored: the application
+			// refuses what it wants, here an animated GIF on the free plan.
+			check: ({ body, caller }) => {
+				if (isAnimatedGif(body) && !subscribed(caller)) {
+					throw new PublicError(
+						'ANIMATED_IMAGE',
+						'Animated images need a plan.',
+					)
+				}
+			},
+		}),
+		//#endregion
 	}),
 	// Open to every client, to keep the example on files.
 }).with({ access: allow.public })
@@ -61,4 +88,14 @@ function pngSize(body: Uint8Array) {
 	const view = new DataView(body.buffer, body.byteOffset, body.byteLength)
 	return { width: view.getUint32(16), height: view.getUint32(20) }
 }
+//#endregion
+
+//#region animated
+/**
+ * Whether a GIF loops, as nearly every animated GIF does: it carries the
+ * NETSCAPE2.0 extension. An image library, such as sharp and its `pages`,
+ * counts the frames of any format.
+ */
+const isAnimatedGif = (body: Uint8Array) =>
+	new TextDecoder('latin1').decode(body).includes('NETSCAPE2.0')
 //#endregion

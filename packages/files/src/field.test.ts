@@ -113,6 +113,12 @@ describe('file()', () => {
 		// @ts-expect-error: a variant is a function.
 		expect(() => file({ variants })).toThrow('variant thumb is a function')
 	})
+
+	it('refuses a check that is not a function (D-402)', () => {
+		const check = 'animated'
+		// @ts-expect-error: check is a function.
+		expect(() => file({ check })).toThrow('check is a function')
+	})
 })
 
 describe('a file field', () => {

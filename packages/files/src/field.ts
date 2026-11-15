@@ -1,7 +1,7 @@
 // `file(options)` (D-152): a field of one file or a list of them, stored as a
 // JSON copy of their metadata. A write gives ids, which the plugin's hooks
 // resolve; a read gives each file's URL, signed through the running storage.
-import type { Field, JsonValue } from 'ultimabase'
+import type { Caller, Field, JsonValue } from 'ultimabase'
 import type { StandardSchema } from './standard.ts'
 import { defineFieldType } from 'ultimabase'
 import { shapeOf } from './shape.ts'
@@ -35,6 +35,17 @@ export interface MadeVariant {
 	readonly type: string
 }
 
+/** What a field's upload rules receive: the uploader (D-402). */
+export interface UploadFacts {
+	readonly caller: Caller
+}
+
+/** A value, or a function of the uploader that gives it (D-402). */
+export type ByCaller<T> = T | ((facts: UploadFacts) => T | Promise<T>)
+
+/** Refuses an upload from its bytes, before it is stored (D-402). */
+export type Check = (facts: UploadFacts & FileInput) => void | Promise<void>
+
 /** What `file()` takes (D-152). */
 export interface FileOptions {
 	readonly description?: string
@@ -42,10 +53,12 @@ export interface FileOptions {
 	readonly optional?: boolean
 	/** A list of files, `[]` when empty. */
 	readonly list?: boolean
-	/** In bytes, 50 MB by default. */
-	readonly maxSize?: number
+	/** In bytes, 50 MB by default; or a function of the uploader. */
+	readonly maxSize?: ByCaller<number>
 	/** MIME types or patterns: `['image/*', 'application/pdf']`; any by default. */
-	readonly accept?: readonly string[]
+	readonly accept?: ByCaller<readonly string[]>
+	/** Throws a `PublicError` to refuse an upload, before it is stored. */
+	readonly check?: Check
 	/** Served to everyone at a stable URL; presigned otherwise, the same for 15 minutes. */
 	readonly public?: boolean
 	readonly inline?: { readonly [key: string]: Inline }
@@ -96,8 +109,16 @@ export type FileField<O> = Field<
 export const defaultMaxSize: number = 50 * 1024 * 1024
 
 /** Whether a `maxSize` is a number of bytes. */
-export const isByteCount = (size: number): boolean =>
-	Number.isInteger(size) && size > 0
+export const isByteCount = (size: unknown): size is number =>
+	typeof size === 'number' && Number.isInteger(size) && size > 0
+
+/** Whether `accept` lists MIME types or patterns: image/png, image/*. */
+export const isAccept = (accept: unknown): accept is readonly string[] =>
+	Array.isArray(accept) &&
+	accept.every(
+		(type) =>
+			typeof type === 'string' && /^[\w.+-]+\/(\*|[\w.+-]+)$/.test(type),
+	)
 const operations: readonly Operation[] = ['set', 'push', 'pushUnique', 'remove']
 
 export const keysOf = (options: FileOptions): Keys => ({
@@ -162,6 +183,7 @@ const fileType = defineFieldType({
 		'list',
 		'maxSize',
 		'accept',
+		'check',
 		'public',
 		'inline',
 		'variants',
@@ -196,17 +218,30 @@ const fileType = defineFieldType({
 })
 
 function checked(options: FileOptions): void {
-	const { list, optional, maxSize, accept } = options
+	const { list, optional, maxSize, accept, check } = options
 	if (list === true && optional === true) {
 		throw new Error('A file list is empty, never null: list or optional.')
 	}
-	if (maxSize !== undefined && !isByteCount(maxSize)) {
-		throw new Error('A file field’s maxSize is a number of bytes.')
+	if (
+		maxSize !== undefined &&
+		typeof maxSize !== 'function' &&
+		!isByteCount(maxSize)
+	) {
+		throw new Error(
+			'A file field’s maxSize is a number of bytes, or a function.',
+		)
 	}
-	if (accept?.some((type) => !/^[\w.+-]+\/(\*|[\w.+-]+)$/.test(type))) {
+	if (
+		accept !== undefined &&
+		typeof accept !== 'function' &&
+		!isAccept(accept)
+	) {
 		throw new Error(
 			'A file field’s accept lists MIME types or patterns: image/png, image/*.',
 		)
+	}
+	if (check !== undefined && typeof check !== 'function') {
+		throw new Error('A file field’s check is a function.')
 	}
 	for (const [key, inline] of Object.entries(options.inline ?? {})) {
 		if (typeof inline !== 'function' && typeof inline?.run !== 'function') {
