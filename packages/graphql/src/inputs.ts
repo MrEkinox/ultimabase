@@ -21,7 +21,7 @@ import { upper } from './names.ts'
 import { oneOfFilter } from './one-ofs.ts'
 import type { Args, Registry, Scalar } from './registry.ts'
 import { deprecated, scalarType } from './registry.ts'
-import { DateTime } from './scalars.ts'
+import { DateTime, JSONScalar } from './scalars.ts'
 
 /** An input object's value, as the kernel's arguments. */
 export const objectOf = (value: unknown): Args =>
@@ -83,6 +83,21 @@ function filter(
 			}),
 	)
 }
+
+/**
+ * `PresenceFilter`: a plugin field, `null` or `{ not: null }` (D-404). `not`
+ * is JSON so it may be `null`; the kernel refuses any other value.
+ */
+const presenceFilter = (registry: Registry): GraphQLInputObjectType =>
+	registry.input(
+		'PresenceFilter',
+		() =>
+			new GraphQLInputObjectType({
+				name: 'PresenceFilter',
+				description: 'A plugin field: null, or { not: null }.',
+				fields: { not: { type: JSONScalar } },
+			}),
+	)
 
 /** Each scalar type's operators: no order on strings, as the kernel. */
 const operators: { readonly [T in Scalar['type']]: readonly string[] } = {
@@ -196,8 +211,15 @@ export function whereInput(
 						fields['_search'] = { type: GraphQLString }
 					}
 					for (const field of readable(entry)) {
-						// Only a beforeFind filters a plugin field (D-122).
-						if (entry.exposed.fieldTypes[field.name] !== undefined) continue
+						const fieldType = entry.exposed.fieldTypes[field.name]
+						// A plugin field on its presence alone, but a list (D-404).
+						if (fieldType !== undefined) {
+							const listed = field.kind === 'scalar' && field.list
+							if (!listed && fieldType.options['list'] !== true) {
+								fields[field.name] = { type: presenceFilter(registry) }
+							}
+							continue
+						}
 						fields[field.name] = {
 							type:
 								field.kind === 'scalar'

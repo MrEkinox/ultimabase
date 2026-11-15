@@ -24,6 +24,13 @@ import type {
 } from './query-filter.ts'
 import type { Relevance, SearchWhere } from './query-search.ts'
 import type {
+	IsList,
+	PluginKeys,
+	PluginListKeys,
+	Presence,
+	StoredOf,
+} from './query-plugin.ts'
+import type {
 	OneOfArgs,
 	OneOfFilter,
 	OneOfKeys,
@@ -56,12 +63,6 @@ export type TargetOf<X> = X extends {
 }
 	? T
 	: never
-type IsList<X> = X extends {
-	readonly [fieldType]: { readonly options: { readonly list: true } }
-}
-	? true
-	: false
-
 /** A json field's value, any JSON without a schema, or a path filter (D-149). */
 type JsonFilter<V> = V | ScalarFilter<NonNullable<V>> | JsonPathFilter
 
@@ -94,17 +95,6 @@ export type FilterOf<X> =
 								readonly none?: Where<TargetFields<TargetOf<X>>> | undefined
 							} & ViewerFilter<TargetOf<X>>
 
-/** A plugin field type's stored field (D-122), `never` for a kernel one. */
-type StoredOf<X> = X extends {
-	readonly [fieldType]: { readonly stored: infer S }
-}
-	? S
-	: never
-/** The fields of a plugin field type, which only a `beforeFind` filters. */
-type PluginKeys<F> = {
-	[K in keyof F]: [StoredOf<F[K]>] extends [never] ? never : K
-}[keyof F]
-
 /** The system fields' filters and the combinators of a `where` `W`. */
 interface Filters<W> {
 	readonly id?: string | Omit<ScalarFilter<string>, 'mode'> | undefined
@@ -115,10 +105,13 @@ interface Filters<W> {
 	readonly NOT?: W | readonly W[] | undefined
 }
 
-/** No `where` filters a virtual (D-151). */
+/**
+ * No `where` filters a virtual (D-151); a plugin field, on presence alone
+ * (D-404).
+ */
 export type Where<F> = {
-	readonly [K in Exclude<keyof F, PluginKeys<F> | VirtualKeys<F>>]?:
-		FilterOf<F[K]> | undefined
+	readonly [K in Exclude<keyof F, PluginListKeys<F> | VirtualKeys<F>>]?:
+		([StoredOf<F[K]>] extends [never] ? FilterOf<F[K]> : Presence) | undefined
 } & Filters<Where<F>> &
 	SearchWhere<F>
 

@@ -1,5 +1,6 @@
 // Plugin field types over REST (D-122): read as `toJSON` gives, described
-// by their shape when they give one (D-152), any JSON otherwise.
+// by their shape when they give one (D-152), any JSON otherwise; filtered on
+// their presence alone (D-404).
 import { httpPlugin } from '@ultimabase/http'
 import type { Logger, PluginTypes } from 'ultimabase'
 import {
@@ -40,10 +41,10 @@ const place = defineFieldType({
 	shape: z.object({ lat: z.number(), lng: z.number() }),
 })
 
-/** The same place, without a shape. */
+/** The same place, optional and without a shape. */
 const loose = defineFieldType({
 	plugin: 'places',
-	stored: (f) => f.json(),
+	stored: (f) => f.json({ optional: true }),
 	decode: (stored) => pair.parse(stored),
 	encode: (value) => value,
 	schema: pair,
@@ -102,4 +103,51 @@ it('is described by its shape when read, any JSON when written', async () => {
 	})
 	expect(at(schema('Spot'), 'properties', 'there')).toStrictEqual({})
 	expect(at(schema('SpotCreateInput'), 'properties', 'here')).toStrictEqual({})
+})
+
+it('is filtered on its presence alone (D-404)', async () => {
+	const { body } = await call(url, 'GET', '/api/openapi.json')
+	const schema = (name: string) => at(body, 'components', 'schemas', name)
+	expect(at(schema('SpotWhereInput'), 'properties', 'there')).toStrictEqual({
+		$ref: '#/components/schemas/PresenceFilter',
+	})
+	expect(schema('PresenceFilter')).toStrictEqual({
+		description: 'A plugin field: null, or { not: null }.',
+		anyOf: [
+			{ type: 'null' },
+			{
+				type: 'object',
+				properties: { not: { type: 'null' } },
+				required: ['not'],
+				additionalProperties: false,
+			},
+		],
+	})
+	await call(url, 'POST', '/api/spots', {
+		body: { here: [5, 6] },
+		headers: asMaster,
+	})
+	const heres = async (where: unknown) => {
+		const query = `?where=${encodeURIComponent(JSON.stringify(where))}`
+		const sent = await call(url, 'GET', `/api/spots${query}`, {
+			headers: asMaster,
+		})
+		const edges = at(sent.body, 'edges')
+		return Array.isArray(edges)
+			? edges.map((edge) => at(edge, 'node', 'here'))
+			: sent
+	}
+	expect(await heres({ there: null })).toStrictEqual([{ lat: 5, lng: 6 }])
+	expect(await heres({ there: { not: null } })).toStrictEqual([
+		{ lat: 1, lng: 2 },
+	])
+	expect(await heres({ there: [3, 4] })).toMatchObject({
+		status: 400,
+		body: {
+			code: 'BAD_USER_INPUT',
+			message:
+				'where.there: Spot.there is a places field: a where filters its presence alone, null or { not: null }.',
+			details: { path: 'where.there' },
+		},
+	})
 })

@@ -81,6 +81,13 @@ function filter(
 	)
 }
 
+/** `PresenceFilter`: a plugin field, `null` or `{ not: null }` (D-404). */
+const presenceFilter = (doc: Doc): Schema =>
+	doc.components.ref('PresenceFilter', () => ({
+		description: 'A plugin field: null, or { not: null }.',
+		anyOf: [{ type: 'null' }, objectOf({ not: { type: 'null' } }, ['not'])],
+	}))
+
 function scalarFilter(doc: Doc, model: string, field: Scalar): Schema {
 	// A typed json field's operands are any JSON at a path (D-149).
 	if (field.type === 'json' && !field.list) {
@@ -111,8 +118,15 @@ function filtersOf(doc: Doc, model: string): { [name: string]: Schema } {
 	}
 	if (searched(readable(entry))) fields['_search'] = { type: 'string' }
 	for (const field of readable(entry)) {
-		// Only a beforeFind filters a plugin field (D-122).
-		if (entry.exposed.fieldTypes[field.name] !== undefined) continue
+		const fieldType = entry.exposed.fieldTypes[field.name]
+		// A plugin field on its presence alone, but a list (D-404).
+		if (fieldType !== undefined) {
+			const listed = field.kind === 'scalar' && field.list
+			if (!listed && fieldType.options['list'] !== true) {
+				fields[field.name] = presenceFilter(doc)
+			}
+			continue
+		}
 		fields[field.name] =
 			field.kind === 'scalar'
 				? scalarFilter(doc, model, field)
