@@ -692,7 +692,7 @@ describe('the portal', () => {
 		locale: null,
 	}
 
-	it('opens its home, a cancellation, a change keeping the quantity, and the payment method', async () => {
+	it('opens its home, a cancellation, a change keeping the quantity, the plan picker and the payment method', async () => {
 		const { gateway, requests } = gatewayOn(portalAnswer)
 		expect(
 			await gateway.openPortal({ ...portal, flow: { kind: 'home' } }),

@@ -399,7 +399,7 @@ describe('stripe.syncCheckout', () => {
 })
 
 describe('stripe.portal', () => {
-	it('opens the portal, its change and cancel confirmations, and its payment method form', async () => {
+	it('opens the portal, its plan picker, its change and cancel confirmations, and its payment method form', async () => {
 		const ada = await signUp()
 		const id = await paid(
 			await stripe.checkout({
@@ -438,6 +438,7 @@ describe('stripe.portal', () => {
 			{ flow: { kind: 'cancel', subscriptionId: id } },
 			{ flow: { kind: 'paymentMethod' } },
 		])
+		// No price at all: a lookup key would open a move, not the picker.
 		expect(fake.portalSessions[opened + 2]?.flow).toStrictEqual({
 			kind: 'change',
 			subscriptionId: id,

@@ -74,11 +74,6 @@ it('sells a subscription and gems, then spends the gems', async () => {
 	//#endregion
 	expect(await cancelPage(ada)).toMatch(/^https:\/\/billing\.stripe\.test\//)
 	expect(await plansPage(ada)).toMatch(/^https:\/\/billing\.stripe\.test\//)
-	const subscription = await Subscription.findFirst({}, M)
-	expect(account.portalSessions.at(-1)?.flow).toStrictEqual({
-		kind: 'change',
-		subscriptionId: subscription?.stripeId,
-	})
 	//#region spend
 	// Back on the success page before the webhook: the gems are there, 100
 	// of the paid month and 500 of the pack.
