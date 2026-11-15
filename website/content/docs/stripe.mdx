@@ -408,9 +408,12 @@ does.
 
 `cleanup` deletes the run's test clocks, with their customers and
 subscriptions, and the customers of its `email` addresses.
-`customerOf(email)` finds the customer Checkout made for an address,
-`payWith` gives a customer a card, and `client` is Stripe's own client on
-the sandbox.
+`customerOf(email)` finds the customer Checkout or `payer` made for an
+address, `payWith` gives a customer a card, and `client` is Stripe's own
+client on the sandbox.
+
+The helpers need no `this`: a suite can share one sandbox as
+`export const { deliver, cleanup } = sandbox`.
 
 A sandbox serves one run at a time: `applyStripeCatalog` from one run
 archives the prices of another. A scheduled CI job runs these tests with
