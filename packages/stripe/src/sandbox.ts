@@ -191,8 +191,7 @@ export function stripeSandbox(options: SandboxOptions): StripeSandbox {
 				)
 			}
 			customers.add(customer)
-			// A payer's customer goes with its clock.
-			if (data.length > 0) found.add(customer)
+			found.add(customer)
 			return customer
 		},
 		payWith,
