@@ -19,17 +19,18 @@ it requires. It takes the storage, and who may upload:
 
 The full example, with its tests: [`examples/files`](https://github.com/MrEkinox/ultimabase/tree/main/examples/files).
 
-| To                                    | Use                                                 |
-| ------------------------------------- | --------------------------------------------------- |
-| attach a file to a row                | [`file()`, then `POST /files`](#add-a-file-field)   |
-| upload from a browser                 | [`uploader()`](#upload-then-write-the-id)           |
-| attach several files, in order        | [`list: true`](#lists-of-files)                     |
-| accept some types, limit the size     | [`accept`, `maxSize`](#types-and-sizes)             |
-| read a width, a thumbnail             | [`inline`, `variants`](#inline-values-and-variants) |
-| serve a file from a CDN, or privately | [`public`](#public-and-private-files)               |
-| upload from server code               | [`files.upload`, `files.check`](#from-server-code)  |
-| fill a key added to `inline` later    | [`files.refresh`](#from-server-code)                |
-| choose S3, a directory or memory      | [`s3()`, `diskFiles()`, `memoryFiles()`](#storage)  |
+| To                                    | Use                                                  |
+| ------------------------------------- | ---------------------------------------------------- |
+| attach a file to a row                | [`file()`, then `POST /files`](#add-a-file-field)    |
+| upload from a browser                 | [`uploader()`](#upload-then-write-the-id)            |
+| attach several files, in order        | [`list: true`](#lists-of-files)                      |
+| accept some types, limit the size     | [`accept`, `maxSize`](#types-and-sizes)              |
+| rules by plan, refuse a file          | [`maxSize`, `accept`, `check`](#rules-of-the-caller) |
+| read a width, a thumbnail             | [`inline`, `variants`](#inline-values-and-variants)  |
+| serve a file from a CDN, or privately | [`public`](#public-and-private-files)                |
+| upload from server code               | [`files.upload`, `files.check`](#from-server-code)   |
+| fill a key added to `inline` later    | [`files.refresh`](#from-server-code)                 |
+| choose S3, a directory or memory      | [`s3()`, `diskFiles()`, `memoryFiles()`](#storage)   |
 
 A client uploads a file first, then writes its id in a row, as any other
 value. A replaced or deleted file leaves the storage after the commit, so no
@@ -163,6 +164,41 @@ refused:
 - Check the size in the browser too: a client still sending a large body may
   see the connection close before the `413`.
 
+### Rules of the caller
+
+`maxSize` and `accept` also take a function of the caller, sync or async, and
+`check` receives the file itself, once read, to refuse it. Here a subscriber
+is a user of a list:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#plans
+</include>
+
+A subscriber's avatar takes 5 MB and an animated GIF; anyone else's, 500 KB
+and a still image:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#avatar
+</include>
+
+What `check` refuses is the application's own; here a looping GIF:
+
+<include cwd meta='title="src/models.ts"'>
+	../examples/files/src/models.ts#animated
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/files/src/app.test.ts#plans
+</include>
+
+- `maxSize` and `accept` run before the body is read: a free user's 50 MB
+  are refused with `413` without being received.
+- `check` runs after the body is read and its type detected, before anything
+  is stored. It receives `{ body, type, name }`, as `inline`, and the caller; a `PublicError` it throws is
+  the upload's answer, any other error a server error.
+- The caller is the uploader, Master included. A rule on the row the file
+  goes to, such as its owner's plan, stays in the model's hooks.
+
 ## Inline values and variants
 
 `inline` names values computed once at upload, and read with the row without a
@@ -280,16 +316,17 @@ file at a stable URL, a private one at a URL signed for 15 to 30 minutes.
 
 ### `file(options)`
 
-| Option        | Type                                 | Default      | Effect                                                                       |
-| ------------- | ------------------------------------ | ------------ | ---------------------------------------------------------------------------- |
-| `optional`    | boolean                              | `false`      | The field may be `null`.                                                     |
-| `list`        | boolean                              | `false`      | A list of files, `[]` when empty.                                            |
-| `maxSize`     | number of bytes                      | the plugin's | The largest file the field takes, larger or smaller than the plugin's.       |
-| `accept`      | MIME types or patterns               | any          | `['image/*', 'application/pdf']`; an undetected type must be listed as is.   |
-| `public`      | boolean                              | `false`      | A stable URL; a private file's URL is signed, the same for 15 minutes.       |
-| `inline`      | `{ [name]: run \| { run, schema } }` | none         | Values computed at upload, each JSON of 2 KB at most, read with the row.     |
-| `variants`    | `{ [name]: run }`                    | none         | Other files made at upload, each `({ body, type, name }) => { body, type }`. |
-| `description` | string                               | none         | The field's description in GraphQL and OpenAPI.                              |
+| Option        | Type                                      | Default      | Effect                                                                       |
+| ------------- | ----------------------------------------- | ------------ | ---------------------------------------------------------------------------- |
+| `optional`    | boolean                                   | `false`      | The field may be `null`.                                                     |
+| `list`        | boolean                                   | `false`      | A list of files, `[]` when empty.                                            |
+| `maxSize`     | number of bytes, or `({ caller })`        | the plugin's | The largest file the field takes, larger or smaller than the plugin's.       |
+| `accept`      | MIME types or patterns, or `({ caller })` | any          | `['image/*', 'application/pdf']`; an undetected type must be listed as is.   |
+| `check`       | `({ body, type, name, caller }) => void`  | none         | Refuses a file once read, by throwing a `PublicError`.                       |
+| `public`      | boolean                                   | `false`      | A stable URL; a private file's URL is signed, the same for 15 minutes.       |
+| `inline`      | `{ [name]: run \| { run, schema } }`      | none         | Values computed at upload, each JSON of 2 KB at most, read with the row.     |
+| `variants`    | `{ [name]: run }`                         | none         | Other files made at upload, each `({ body, type, name }) => { body, type }`. |
+| `description` | string                                    | none         | The field's description in GraphQL and OpenAPI.                              |
 
 A key added to `inline` or `variants` later reads `null` for the files
 stored before it, until [`files.refresh`](#from-server-code) fills it.
@@ -373,6 +410,7 @@ the declared type. The answer is `201` with `{ id }`.
 | 411    | `LENGTH_REQUIRED`        | `Content-Length is required.`                                              |
 | 413    | `PAYLOAD_TOO_LARGE`      | `The file is over 100000 bytes.`                                           |
 | 415    | `UNSUPPORTED_MEDIA_TYPE` | `text/plain is not accepted.`, or `An undetected type is not accepted.`    |
+| 400    | the `check`'s            | A `PublicError` the field's `check` throws, as `ANIMATED_IMAGE`.           |
 
 ### `uploader(options)`
 
@@ -424,14 +462,15 @@ At start:
 
 - `s3() needs bucket, region: undefined or empty.`
 - `A file list is empty, never null: list or optional.`
-- `A file field’s maxSize is a number of bytes.`, `filesPlugin’s maxSize is a
-number of bytes.`
+- `A file field’s maxSize is a number of bytes, or a function.`,
+  `filesPlugin’s maxSize is a number of bytes.`
 - `A file field’s accept lists MIME types or patterns: image/png, image/*.`
 - `A file field’s inline size is a function.`, `A file field’s variant
-preview is a function.`
+preview is a function.`, `A file field’s check is a function.`
 
 At upload, an `inline` value that is not JSON of 2 KB at most, or not of its
-schema, and a variant that throws, fail the upload with a server error.
+schema, a variant that throws, and a `maxSize` or `accept` function that gives
+no byte count or no list of types, fail the upload with a server error.
 
 ### Limits
 

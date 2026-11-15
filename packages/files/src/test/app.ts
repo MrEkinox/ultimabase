@@ -2,8 +2,15 @@
 // its inline value and its variant, a required document and a list of
 // attachments, on `memoryFiles()`.
 import { httpPlugin } from '@ultimabase/http'
-import type { Adapter, Identity, Logger } from 'ultimabase'
-import { allow, defineApp, defineModel, master, memory } from 'ultimabase'
+import type { Adapter, Caller, Identity, Logger } from 'ultimabase'
+import {
+	allow,
+	defineApp,
+	defineModel,
+	master,
+	memory,
+	PublicError,
+} from 'ultimabase'
 import { z } from 'zod'
 import type { FilesOptions } from '../index.ts'
 import { file, filesPlugin, memoryFiles } from '../index.ts'
@@ -85,6 +92,36 @@ export const Page = defineModel({
 	}),
 })
 
+/** Alice pays; anyone else is on the free plan. */
+const pays = (caller: Caller): boolean =>
+	caller.kind === 'user' && caller.user.id === 'alice'
+
+// Upload rules of the caller (D-402): 1 KB, a PNG or a PDF for Alice; 100
+// bytes and a PNG for the others, and no PNG that moves, which the test
+// marks with an `acTL` it appends: the application's own check.
+export const Avatar = defineModel({
+	name: 'Avatar',
+	fields: () => ({
+		image: file({
+			optional: true,
+			maxSize: async ({ caller }) => (pays(caller) ? 1024 : 100),
+			accept: ({ caller }) =>
+				pays(caller) ? ['image/png', 'application/pdf'] : ['image/png'],
+			check: async ({ body, caller }) => {
+				if (!pays(caller) && new TextDecoder().decode(body).endsWith('acTL')) {
+					throw new PublicError(
+						'ANIMATED_IMAGE',
+						'Animated images need a plan.',
+					)
+				}
+			},
+		}),
+		// Rules that give no size or no types: the application's error.
+		noSize: file({ optional: true, maxSize: () => 0 }),
+		noTypes: file({ optional: true, accept: () => ['image'] }),
+	}),
+})
+
 /** Records the warnings, and the URL the HTTP plugin listens on. */
 export function logging(warnings: unknown[], urls: string[] = []): Logger {
 	const logger: Logger = {
@@ -113,7 +150,7 @@ export async function started(
 	const app = defineApp({
 		database,
 		plugins: [httpPlugin({ port: 0 }), filesPlugin({ storage, ...options })],
-		models: [Post, Failing, Page],
+		models: [Post, Failing, Page, Avatar],
 		masterKey,
 		logger: logging(warnings, urls),
 	})

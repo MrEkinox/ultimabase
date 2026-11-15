@@ -37,45 +37,54 @@ export interface SandboxPayer {
 	readonly method: string
 }
 
-/** A Stripe sandbox, and what a test does there. */
+/**
+ * A Stripe sandbox, and what a test does there. Its helpers are functions
+ * that need no `this`: `const { deliver, cleanup } = sandbox` works.
+ */
 export interface StripeSandbox {
 	/** Stripe's client, on the sandbox. */
 	readonly client: Stripe
 	/** This run's name, `ub_<time>_<random>`, in what it makes at Stripe. */
 	readonly run: string
 	/** An address of this run, `<run>-<name>@example.com`, deleted by `cleanup`. */
-	email(name: string): string
-	/** The one customer of `email`, which Checkout made; `deliver` posts its events. */
-	customerOf(email: string): Promise<string>
+	readonly email: (name: string) => string
+	/**
+	 * The one customer of `email`, which Checkout or `payer` made; `deliver`
+	 * posts its events.
+	 */
+	readonly customerOf: (email: string) => Promise<string>
 	/** Gives the customer a card, `pm_card_visa` by default, it pays with by default. */
-	payWith(customer: string, card?: string): Promise<string>
+	readonly payWith: (customer: string, card?: string) => Promise<string>
 	/** A price's id, by its lookup key: `pro.monthly`. */
-	priceId(lookupKey: string): Promise<string>
+	readonly priceId: (lookupKey: string) => Promise<string>
 	/** Throws the changes the sandbox needs to match the catalog, if any. */
-	expectCatalog(options: SandboxCatalog): Promise<void>
+	readonly expectCatalog: (options: SandboxCatalog) => Promise<void>
 	/**
 	 * A customer for the payer row `id` of `model`, on a test clock of its
 	 * own, with a card that pays: the plugin uses it as the one it would make.
 	 */
-	payer(options: {
+	readonly payer: (options: {
 		readonly model: { readonly name: string }
 		readonly id: string
 		readonly email?: string
 		readonly card?: string
-	}): Promise<SandboxPayer>
+	}) => Promise<SandboxPayer>
 	/** Moves a test clock `days` ahead, once Stripe ran what that time does. */
-	advance(clock: string, options: { readonly days: number }): Promise<void>
+	readonly advance: (
+		clock: string,
+		options: { readonly days: number },
+	) => Promise<void>
 	/**
 	 * Posts this run's customers' events, each once, signed, to the webhook
 	 * of the application at `url`, then runs the jobs. `again`, a customer,
 	 * posts its events once more, as Stripe does when an answer is lost.
 	 */
-	deliver(
+	readonly deliver: (
 		url: string,
 		options?: { readonly again?: string; readonly path?: string },
-	): Promise<void>
+	) => Promise<void>
 	/** Deletes this run's test clocks, and the customers of its addresses. */
-	cleanup(): Promise<void>
+	readonly cleanup: () => Promise<void>
 }
 
 const entry = 'stripeSandbox'
@@ -124,6 +133,9 @@ export function stripeSandbox(options: SandboxOptions): StripeSandbox {
 	const customers = new Set<string>()
 	const found = new Set<string>()
 	const clocks: string[] = []
+	// `payer`'s customers by address: on a test clock, `customers.list`
+	// leaves them out.
+	const payers: { readonly email: string; readonly customer: string }[] = []
 	const posted = new Set<string>()
 	const owners = new Map<string, Promise<string | null>>()
 
@@ -166,15 +178,21 @@ export function stripeSandbox(options: SandboxOptions): StripeSandbox {
 		},
 		customerOf: async (email) => {
 			const { data } = await client.customers.list({ email, limit: 2 })
-			const [customer] = data
-			if (customer === undefined || data.length > 1) {
+			const ids = [
+				...payers
+					.filter((made) => made.email === email)
+					.map(({ customer }) => customer),
+				...data.map(({ id }) => id),
+			]
+			const [customer] = ids
+			if (customer === undefined || ids.length > 1) {
 				throw new Error(
-					`Stripe holds ${data.length === 0 ? 'no' : 'several'} customers of ${email}: expected one.`,
+					`Stripe holds ${ids.length === 0 ? 'no' : 'several'} customers of ${email}: expected one.`,
 				)
 			}
-			customers.add(customer.id)
-			found.add(customer.id)
-			return customer.id
+			customers.add(customer)
+			found.add(customer)
+			return customer
 		},
 		payWith,
 		priceId: async (lookupKey) => {
@@ -223,6 +241,7 @@ export function stripeSandbox(options: SandboxOptions): StripeSandbox {
 				metadata: { managedBy },
 			})
 			customers.add(customer)
+			if (email !== undefined) payers.push({ email, customer })
 			const method = await payWith(customer, card)
 			await StripeCustomer.create(
 				{ data: { model: model.name, payer: id, stripeId: customer } },

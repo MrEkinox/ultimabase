@@ -1,13 +1,14 @@
 // An upload (D-152): its caller, its field, its size and its type checked,
-// its pending `FilesBlob` row inserted as its caller, then its object
-// stored. When it fails, its objects and its rows are deleted.
+// by the field's rules of that caller (D-402), its pending `FilesBlob` row
+// inserted as its caller, then its object stored. When it fails, its objects
+// and its rows are deleted.
 import { randomUUID } from 'node:crypto'
 import { fileTypeFromBuffer } from 'file-type'
-import type { Identity, JsonValue, QueryOptions } from 'ultimabase'
+import type { Caller, Identity, JsonValue, QueryOptions } from 'ultimabase'
 import { isMaster, PublicError } from 'ultimabase'
 import { apart, completedCaller } from 'ultimabase/internal'
 import type { FileInput, FileOptions, Inline } from './field.ts'
-import { keysOf } from './field.ts'
+import { isAccept, isByteCount, keysOf } from './field.ts'
 import { bytesOf } from './memory.ts'
 import { FilesBlob, hour, M } from './model.ts'
 import type { FileBody } from './storage.ts'
@@ -173,10 +174,11 @@ async function inlineValue(
  * Refuses a caller `access.upload` refuses before a byte is read, and before
  * its field is checked, so a refusal names no model or field (D-351).
  */
-async function allowed(caller: Identity): Promise<void> {
-	if (isMaster(caller)) return
+async function allowed(identity: Identity): Promise<Caller> {
+	const caller = await completedCaller(identity)
+	if (isMaster(caller)) return caller
 	const { upload: rule, logger } = runningOf()
-	if (rule({ caller: await completedCaller(caller) })) return
+	if (rule({ caller })) return caller
 	const callerId = caller.kind === 'user' ? caller.user.id : null
 	logger.warn({ callerId }, 'An upload was refused.')
 	throw new PublicError('ACCESS_DENIED', 'The upload is refused.')
@@ -184,6 +186,32 @@ async function allowed(caller: Identity): Promise<void> {
 
 const uploaderOf = (caller: Identity): string | null =>
 	isMaster(caller) ? 'master' : caller.kind === 'user' ? caller.user.id : null
+
+/**
+ * The field's size and types for this caller, computed before a byte of the
+ * body is read (D-402).
+ */
+async function rulesOf(
+	target: string,
+	field: FileOptions,
+	caller: Caller,
+	appMaxSize: number,
+): Promise<{
+	readonly maxSize: number
+	readonly accept: readonly string[] | undefined
+}> {
+	const { maxSize = appMaxSize, accept } = field
+	const size =
+		typeof maxSize === 'function' ? await maxSize({ caller }) : maxSize
+	if (!isByteCount(size)) {
+		throw new TypeError(`${target}'s maxSize gave no number of bytes.`)
+	}
+	const types = typeof accept === 'function' ? await accept({ caller }) : accept
+	if (types !== undefined && !isAccept(types)) {
+		throw new TypeError(`${target}'s accept gave no list of MIME types.`)
+	}
+	return { maxSize: size, accept: types }
+}
 
 /**
  * What a buffered upload made: its inline values and its variants, those
@@ -235,34 +263,39 @@ async function stored(
 	size: number,
 	options: UploadOptions,
 ): Promise<{ readonly id: string }> {
-	const { name, as: caller = { kind: 'anonymous' } } = options
-	await allowed(caller)
+	const { name, as: identity = { kind: 'anonymous' } } = options
+	const caller = await allowed(identity)
 	const field = fieldOf(options.for)
 	if (name === '') throw invalid('name', 'Expected a file name.')
 	const { storage, logger, maxSize: appMaxSize } = runningOf()
-	const maxSize = field.maxSize ?? appMaxSize
+	const rules = await rulesOf(options.for, field, caller, appMaxSize)
+	const { maxSize } = rules
 	if (size > maxSize) {
 		throw new PublicError(
 			'PAYLOAD_TOO_LARGE',
 			`The file is over ${maxSize} bytes.`,
 		)
 	}
-	const buffered = field.inline !== undefined || field.variants !== undefined
+	const buffered =
+		field.inline !== undefined ||
+		field.variants !== undefined ||
+		field.check !== undefined
 	const read = buffered
 		? { sample: await bytesOf(body), body: undefined }
 		: await sampled(body)
 	const bytes = read.sample
-	const { type, attachment } = await typeOf(bytes, options.type, field.accept)
+	const { type, attachment } = await typeOf(bytes, options.type, rules.accept)
 	if (buffered && bytes.length !== size) {
 		throw invalid('size', `The file has ${bytes.length} bytes, not ${size}.`)
 	}
+	await field.check?.({ body: bytes, type, name, caller })
 	// Made before the rows, so an upload writes its row, then its variants'.
 	const made = buffered
 		? await madeOf(field, { body: bytes, type, name })
 		: undefined
 	const prefix = field.public === true ? 'public' : 'private'
 	const keyOf = () => `${prefix}/${randomUUID()}`
-	const uploadedBy = uploaderOf(caller)
+	const uploadedBy = uploaderOf(identity)
 	const deleteAfter = new Date(Date.now() + hour)
 	const blob = { field: options.for, uploadedBy, state: 'pending', deleteAfter }
 	const main = await FilesBlob.create(
@@ -276,7 +309,7 @@ async function stored(
 				inline: made?.inline ?? null,
 			},
 		},
-		{ as: caller },
+		{ as: identity },
 	)
 	const variants = (made?.variants ?? []).map(
 		([key, variantBody, variantType]) => ({

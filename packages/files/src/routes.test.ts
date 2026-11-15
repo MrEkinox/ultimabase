@@ -92,6 +92,19 @@ it('refuses a type the field does not accept', async () => {
 	})
 })
 
+it("answers a field's check refusal as a client error (D-402)", async () => {
+	const url = await start({ access: { upload: allow.public } })
+	// A PNG the test application's check reads as moving, from a visitor.
+	const moving = Uint8Array.from([...png, ...new TextEncoder().encode('acTL')])
+	const response = await post(url, 'for=Avatar.image&name=a.png', {
+		body: moving,
+	})
+	expect(response).toStrictEqual({
+		status: 400,
+		json: { code: 'ANIMATED_IMAGE', message: 'Animated images need a plan.' },
+	})
+})
+
 it('refuses a caller access.upload refuses, and a missing field', async () => {
 	const url = await start()
 	const refused = await post(url, 'for=Post.cover&name=a.png', { body: png })
