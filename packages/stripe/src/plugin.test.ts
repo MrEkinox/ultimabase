@@ -124,10 +124,13 @@ describe('stripePlugin’s start', () => {
 	})
 
 	it('refuses keys that are not a secret key and a signing secret', async () => {
-		const keys = { secret: 'pk_test_x', webhook: 'whsec_x' }
-		await expect(started([User], { keys })).rejects.toThrow(
-			'stripePlugin: keys.secret is the secret key, sk_….',
-		)
+		// A publishable key, and a restricted key without its mode.
+		for (const secret of ['pk_test_x', 'rk_x']) {
+			const keys = { secret, webhook: 'whsec_x' }
+			await expect(started([User], { keys })).rejects.toThrow(
+				'stripePlugin: keys.secret is a secret or restricted key, sk_… or rk_….',
+			)
+		}
 		await expect(
 			started([User], { keys: { secret: 'sk_test_x', webhook: 'x' } }),
 		).rejects.toThrow(
@@ -274,11 +277,20 @@ describe('the server calls', () => {
 })
 
 describe.each([
-	{ when: 'outside development', env: 'test', key: 'sk_test' },
+	{
+		when: 'outside development, with a restricted key',
+		env: 'test',
+		key: 'rk_test',
+	},
 	{
 		when: 'in development, with a live key',
 		env: 'development',
 		key: 'sk_live',
+	},
+	{
+		when: 'in development, with a restricted live key',
+		env: 'development',
+		key: 'rk_live',
 	},
 ])('$when', ({ env, key }) => {
 	beforeEach(() => {

@@ -24,7 +24,7 @@ import { describeStep } from './describe.ts'
 import { checkEnums } from './enums.ts'
 import { stripeClient } from './gateway.ts'
 import { closeJob, stripeJobs } from './jobs.ts'
-import { ownKeys } from './keys.ts'
+import { checkSecret, isLive, ownKeys } from './keys.ts'
 import type { Kind } from './kinds.ts'
 import { billingModels } from './kinds.ts'
 import { catalogFunctions } from './catalog-query.ts'
@@ -102,9 +102,7 @@ function keysOf(keys: unknown): StripeOptions['keys'] {
 	ownKeys(`${entry}'s keys`, keys, ['secret', 'webhook'])
 	const secret: unknown = Reflect.get(keys, 'secret')
 	const webhook: unknown = Reflect.get(keys, 'webhook')
-	if (typeof secret !== 'string' || !secret.startsWith('sk_')) {
-		throw new Refused(`${entry}: keys.secret is the secret key, sk_….`)
-	}
+	checkSecret(`${entry}: keys.secret`, secret)
 	if (typeof webhook !== 'string' || !webhook.startsWith('whsec_')) {
 		throw new Refused(`${entry}: keys.webhook is the signing secret, whsec_….`)
 	}
@@ -309,7 +307,7 @@ const definition = definePlugin<Stripe>({
 							gateway: gatewayOf(keys.secret),
 							client: stripeClient(keys.secret),
 							webhook: keys.webhook,
-							live: keys.secret.includes('_live_'),
+							live: isLive(keys.secret),
 						},
 			catalog,
 			products: new Map(catalog.products.map((one) => [one.key, one])),

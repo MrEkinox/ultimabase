@@ -66,7 +66,8 @@ every 3 months`; `yarn deploy --dry-run` prints them and changes nothing.
 - `taxBehavior` is `'inclusive'` unless set: the amounts include the taxes.
 - A new Stripe account sells through Managed Payments, whose Checkout refuses
   a product with no `taxCode`, as `taxCode: 'txcd_10103000'`.
-- The secret key's mode is printed: `sk_live_…` writes to the live account.
+- The key's mode is printed: `sk_live_…` or `rk_live_…` writes to the live
+  account.
 
 ## The plugin
 
@@ -85,9 +86,10 @@ npm install @ultimabase/jobs
 	../examples/stripe/src/app.ts#app
 </include>
 
-- `keys` holds the secret key and the webhook's signing secret. Without
-  them, the application starts, every call that needs Stripe throws
-  `PAYMENT_UNAVAILABLE`, and the webhook answers 503.
+- `keys` holds the secret key, or a [restricted key](#a-restricted-key),
+  and the webhook's signing secret. Without them, the application starts,
+  every call that needs Stripe throws `PAYMENT_UNAVAILABLE`, and the webhook
+  answers 503.
 - `customer` gives what Stripe shows of a payer, from its row: `email`,
   `name`, `locale`. Each payer has one Stripe customer, created at its first
   Checkout and closed when the payer's row is deleted. A payer's update
@@ -115,6 +117,29 @@ npm install @ultimabase/jobs
   intervals, trials and credits. It reads the code, not Stripe, so it
   answers without keys; keys and price names are typed by the billing
   models' enums. `stripe.catalog()` returns the same on the server.
+
+### A restricted key
+
+Stripe advises a restricted key, `rk_live_…`, for a server: it can do only
+what it is given. Writing a resource lets a key read it too. The server's
+key needs these permissions:
+
+| Permission        | Access                                                     |
+| ----------------- | ---------------------------------------------------------- |
+| Customers         | Write                                                      |
+| Checkout Sessions | Write                                                      |
+| Subscriptions     | Write                                                      |
+| Customer portal   | Write                                                      |
+| Products, Prices  | Read                                                       |
+| Invoices          | Read                                                       |
+| PaymentIntents    | Read                                                       |
+| Disputes          | Read                                                       |
+| Charges           | Read; Write with `oneSubscription` or `risk`, which refund |
+
+The deploy script's `applyStripeCatalog` writes the catalog: its key needs
+Products, Prices and Customer portal written. The server's key then needs
+no write on the catalog. A call the key is not allowed fails as any Stripe
+error does; the catalog compared at start only warns.
 
 ## The billing models
 
@@ -382,13 +407,16 @@ or its `path`.
 
 `@ultimabase/stripe/sandbox` runs the same tests against a Stripe sandbox,
 where renewals, failed cards and Stripe's own rules happen for real. It
-takes the sandbox's secret key, `sk_test_…`, and refuses any other, and the
-webhook secret the application's `stripePlugin` reads, which signs what it
-posts.
+takes the sandbox's secret or restricted key, `sk_test_…` or `rk_test_…`,
+and refuses any other, and the webhook secret the application's
+`stripePlugin` reads, which signs what it posts.
 
 <include cwd meta='title="src/app.stripe.test.ts"'>
 	../examples/stripe/src/app.stripe.test.ts#sandbox
 </include>
+
+A restricted key of the sandbox needs the server's permissions, the
+catalog's, Events read and Test clocks written.
 
 `expectCatalog` fails when the sandbox's catalog differs from the code,
 with the changes `applyStripeCatalog` would make.
