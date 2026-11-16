@@ -1,5 +1,14 @@
 # @ultimabase/auth
 
+## 1.1.0
+
+### Patch Changes
+
+- Updated dependencies [4357de4]
+- Updated dependencies [44fd95d]
+  - @ultimabase/http@1.1.0
+  - ultimabase@1.1.0
+
 ## 1.0.0
 
 ### Patch Changes

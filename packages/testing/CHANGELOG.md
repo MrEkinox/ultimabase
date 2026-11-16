@@ -1,5 +1,12 @@
 # @ultimabase/testing
 
+## 1.1.0
+
+### Patch Changes
+
+- Updated dependencies [44fd95d]
+  - ultimabase@1.1.0
+
 ## 1.0.0
 
 ### Patch Changes

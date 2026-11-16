@@ -1,5 +1,28 @@
 # @ultimabase/stripe
 
+## 1.1.0
+
+### Minor Changes
+
+- 4d785e2: `stripe.portal({ payer, open: 'change' })` without `product` and `price` opens Stripe's plan picker on the payer's subscription (D-403).
+
+### Patch Changes
+
+- 3d771bd: `stripePlugin`, `applyStripeCatalog` and `stripeSandbox` take a Stripe restricted key, `rk_live_…`
+  or `rk_test_…`, as well as a secret key (D-406). Any other value, as a publishable key, is refused
+  at start, and the documentation lists the permissions a restricted key needs.
+- 747e5d3: The sandbox's helpers are typed as functions that need no `this`, so a suite
+  can destructure them (`export const { deliver, cleanup } = sandbox`) without
+  the type-aware `unbound-method` lint rule flagging each one. `customerOf` also
+  finds the customers `payer` made, which Stripe leaves out of its customer list
+  because they sit on a test clock.
+- Updated dependencies [4357de4]
+- Updated dependencies [44fd95d]
+  - @ultimabase/http@1.1.0
+  - ultimabase@1.1.0
+  - @ultimabase/testing@1.1.0
+  - @ultimabase/jobs@1.1.0
+
 ## 1.0.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/sentry",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Sentry for UltimaBase: each operation, hook, virtual field and function a span of its request's trace, each error the server masks an issue.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -32,7 +32,7 @@
 	},
 	"peerDependencies": {
 		"@sentry/node": "^11.11.0",
-		"ultimabase": "^1.0.0"
+		"ultimabase": "^1.1.0"
 	},
 	"devDependencies": {
 		"@sentry/node": "11.11.0",
