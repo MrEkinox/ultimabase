@@ -15,7 +15,7 @@ import { counted, stopping } from './server.ts'
 /**
  * An upgrade a plugin takes: Node's request, its socket and first bytes, as
  * `ws`'s `handleUpgrade` reads them, the request `identify` reads and the
- * client's address, as `proxies` reads it (D-116).
+ * client's address, as `proxies` or `addressHeader` reads it (D-116, D-405).
  */
 export interface Upgrade {
 	readonly request: Request

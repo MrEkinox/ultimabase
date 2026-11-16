@@ -18,7 +18,7 @@ import {
 } from 'ultimabase'
 import type { HttpApi, HttpEnv, Routes } from './index.ts'
 import { clientOf, httpPlugin, routes } from './index.ts'
-import { addresses } from './address.ts'
+import { addresses, sourceOf } from './address.ts'
 import {
 	bodyLimitOf,
 	shutdown,
@@ -1102,7 +1102,7 @@ function forwardedFrom(connection: string | undefined, headers: string[]) {
 /** Whether a forwarded request from `connection` warns, without proxies. */
 function warnedFor(connection: string | undefined): boolean {
 	const lines: Line[] = []
-	const read = addresses(0, recorder(lines))
+	const read = addresses({ proxies: 0, header: undefined }, recorder(lines))
 	expect(read(forwardedFrom(connection, ['198.51.100.1']))).toBe(
 		connection ?? '',
 	)
@@ -1162,7 +1162,7 @@ describe('a client’s address behind proxies (D-116)', () => {
 		expect(warnings()).toStrictEqual([
 			{
 				level: 'warn',
-				first: `A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set: every client counts as ${address}. Set it to the number of proxies in front of the server.`,
+				first: `A request came through a proxy (X-Forwarded-For) but neither httpPlugin({ proxies }) nor httpPlugin({ addressHeader }) is set: every client counts as ${address}. Set proxies to the number of proxies in front of the server, or addressHeader to the header its platform sets with the client's address.`,
 			},
 		])
 	})
@@ -1195,8 +1195,10 @@ describe('a client’s address behind proxies (D-116)', () => {
 
 	it('reads several headers as one list', () => {
 		const env = forwardedFrom('10.0.0.2', ['6.6.6.6', '203.0.113.7, 10.0.0.1'])
-		expect(addresses(2, recorder([]))(env)).toBe('203.0.113.7')
-		expect(addresses(3, recorder([]))(env)).toBe('6.6.6.6')
+		const read = (proxies: number) =>
+			addresses({ proxies, header: undefined }, recorder([]))(env)
+		expect(read(2)).toBe('203.0.113.7')
+		expect(read(3)).toBe('6.6.6.6')
 	})
 
 	it('stops startup when proxies is not a whole number', async () => {
@@ -1205,6 +1207,107 @@ describe('a client’s address behind proxies (D-116)', () => {
 				`proxies is ${proxies}, not a whole number of proxies in front of the server.`,
 			)
 		}
+	})
+})
+
+/** The address a request reads, with these headers. */
+async function addressWith(
+	url: string,
+	headers: Record<string, string>,
+): Promise<string> {
+	return (await fetch(`${url}/address`, { headers })).text()
+}
+
+describe('a client’s address in a header its platform sets (D-405)', () => {
+	const options = {
+		port: 0,
+		addressHeader: 'Do-Connecting-IP',
+		routes: [reading],
+	}
+
+	it('is the one address the header holds, its port dropped', async () => {
+		const { url } = await server(options)
+		const read = []
+		for (const value of [
+			'203.0.113.7',
+			' 2001:db8::1 ',
+			'203.0.113.8:4711',
+			'[2001:db8::2]:443',
+		]) {
+			read.push(
+				await addressWith(url, {
+					'do-connecting-ip': value,
+					'x-forwarded-for': '6.6.6.6',
+				}),
+			)
+		}
+		expect(read).toEqual([
+			'203.0.113.7',
+			'2001:db8::1',
+			'203.0.113.8',
+			'2001:db8::2',
+		])
+	})
+
+	it('is the connection’s without one address in it, and warns once', async () => {
+		const { url, lines } = await server(options)
+		const warnings = () => lines.filter((line) => line.level === 'warn')
+		const address = await addressWith(url, { 'x-forwarded-for': '6.6.6.6' })
+		expect(loopback).toContain(address)
+		for (const value of ['6.6.6.6, 203.0.113.7', 'unknown', '']) {
+			expect(await addressWith(url, { 'do-connecting-ip': value })).toBe(
+				address,
+			)
+		}
+		expect(warnings()).toStrictEqual([
+			{
+				level: 'warn',
+				first: `A request has no single address in do-connecting-ip: it counts as ${address}. Check that the platform in front of the server sets this header.`,
+			},
+		])
+	})
+
+	it('is the connection’s when the header is sent twice', () => {
+		const env = forwardedFrom('10.0.0.2', [])
+		env.incoming.headersDistinct = {
+			'do-connecting-ip': ['6.6.6.6', '203.0.113.7'],
+		}
+		const read = addresses(
+			{ proxies: 0, header: 'do-connecting-ip' },
+			recorder([]),
+		)
+		expect(read(env)).toBe('10.0.0.2')
+	})
+
+	it('refuses a name that is not a header, or proxies with it', () => {
+		const refused = [
+			[{ addressHeader: '' }, 'addressHeader is "", not a header name.'],
+			[
+				{ addressHeader: 'do connecting ip' },
+				'addressHeader is "do connecting ip", not a header name.',
+			],
+			[
+				{ addressHeader: 'X-Forwarded-For' },
+				'addressHeader is X-Forwarded-For, which a client writes into: set proxies instead.',
+			],
+			[
+				{ addressHeader: 'do-connecting-ip', proxies: 1 },
+				'proxies and addressHeader are both set: set the one the hosting needs.',
+			],
+		] as const
+		for (const [given, message] of refused) {
+			expect(() => sourceOf(given)).toThrow(message)
+		}
+		expect(sourceOf({ addressHeader: 'Fly-Client-IP', proxies: 0 })).toEqual({
+			proxies: 0,
+			header: 'fly-client-ip',
+		})
+	})
+
+	it('stops startup when it is refused', async () => {
+		await expect(server({ port: 0, addressHeader: 'a b' })).rejects.toThrow(
+			'addressHeader is "a b", not a header name.',
+		)
 	})
 })
 

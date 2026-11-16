@@ -7,7 +7,7 @@ import type { Caller, Logger, PluginOf, PluginTypes } from 'ultimabase'
 import { definePlugin } from 'ultimabase'
 import manifest from '../package.json' with { type: 'json' }
 import type { HttpEnv, HttpOptions, Mounted, Routes } from './app.ts'
-import { addresses, proxiesOf } from './address.ts'
+import { addresses, sourceOf } from './address.ts'
 import { allowing, appOf } from './app.ts'
 import { limiter } from './limit.ts'
 import type { Probes, ReadyCheck } from './probes.ts'
@@ -178,7 +178,7 @@ const http = definePlugin<Http>({
 		const starting = startingGate(probes)
 		const gates = gated.get(context) ?? []
 		const rateLimit = limiter(options.rateLimit, identify, logger)
-		const addressOf = addresses(proxiesOf(options.proxies), logger)
+		const addressOf = addresses(sourceOf(options), logger)
 		const app = appOf(
 			options,
 			mounted,

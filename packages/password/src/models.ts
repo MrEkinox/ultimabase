@@ -121,30 +121,44 @@ async function nth(
 	return failures[n - 1]?.at
 }
 
+// Where a proxy in front of the server connects from, as http's (D-405).
+const proxied = new Set([
+	'loopback',
+	'private',
+	'carrierGradeNat',
+	'linkLocal',
+	'uniqueLocal',
+])
+
+/** Whether `address` is local or private: every client may share it. */
+const isNearby = (address: string): boolean =>
+	ipaddr.isValid(address) && proxied.has(ipaddr.process(address).range())
+
 /**
  * The failures but `id` that refuse the attempt: from one address, the 10th
- * on the subject or the 100th on it or from the address; without one, the
- * 10th on the subject from anywhere, and no address is filled (D-161). The
- * three are read at once.
+ * on the subject or the 100th on it or from the address, unless it is
+ * nearby (D-405); without one, the 10th on the subject from anywhere, and
+ * no address is filled (D-161). The three are read at once.
  */
 async function reached(
 	subject: string,
 	address: string | undefined,
+	nearby: boolean,
 	id: string,
 ): Promise<readonly (Date | undefined)[]> {
 	if (address === undefined) return [await nth({ subject }, id, limit)]
 	return Promise.all([
 		nth({ subject, address }, id, limit),
 		nth({ subject }, id, ceiling),
-		nth({ address }, id, ceiling),
+		nearby ? undefined : nth({ address }, id, ceiling),
 	])
 }
 
 /**
  * Counts an attempt as failed until `run` succeeds, so concurrent attempts
  * cannot pass the limit (D-113, D-114). Within 15 minutes, the 11th from one
- * address on a subject is refused, as the 101st on it or from the address,
- * and the 11th without an address on a subject (D-161); a success clears
+ * address on a subject is refused, as the 101st on it or from the address
+ * but a nearby one (D-405), and the 11th without an address on a subject (D-161); a success clears
  * its address's count, a busy refusal is not counted.
  */
 export async function limited<T>(
@@ -164,7 +178,8 @@ export async function limited<T>(
 		M,
 	)
 	// Several may be reached: the latest says when to retry.
-	const [oldest] = (await reached(subject, network, id))
+	const nearby = attempt.address !== undefined && isNearby(attempt.address)
+	const [oldest] = (await reached(subject, network, nearby, id))
 		.filter((at) => at !== undefined)
 		.toSorted((a, b) => b.getTime() - a.getTime())
 	if (oldest !== undefined) {
