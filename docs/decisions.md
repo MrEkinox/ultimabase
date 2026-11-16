@@ -5632,7 +5632,7 @@ mutation {
 
 ## D-114: `passwordPlugin()`'s limits against many addresses
 
-Amended by D-115, D-161 and D-316.
+Amended by D-115, D-161, D-316 and D-405.
 
 Choice: completes D-113.
 
@@ -5758,7 +5758,7 @@ routes().post('/login', async (c) => {
 
 ## D-116: The client's address behind proxies
 
-Amended by D-348.
+Amended by D-348 and D-405.
 
 Choice: completes D-113; replaces D-115's reason for not deriving `Secure`
 from the request.
@@ -24851,4 +24851,79 @@ await Message.updateMany(
 
 ```graphql
 messages(where: { attachment: { not: null } }) { edges { node { id } } }
+```
+
+## D-405: The client's address in a header its platform sets
+
+Choice: amends D-116 points 4 and 5, and D-114 point 2.
+
+1. `httpPlugin({ addressHeader })` names the header the platform in front
+   of the server sets with the client's address, as `do-connecting-ip` on
+   DigitalOcean App Platform, `cf-connecting-ip` behind Cloudflare or
+   `fly-client-ip` on Fly.io. Set, the address is read from it alone, and
+   `X-Forwarded-For` is ignored.
+2. The header must hold exactly one IP address, a port dropped as in
+   D-348. Missing, sent twice, a list or not an address, the address is the
+   connection's, and the first such request logs one warning per running
+   application: `A request has no single address in do-connecting-ip: it counts as 10.244.0.7. Check that the platform in front of the server sets this header.`
+3. Startup fails on a name that is not a header name, on `X-Forwarded-For`,
+   which `proxies` reads, and with `proxies` above 0: the two say where the
+   address is, and only one can be right.
+4. D-116's warning, without either option, names both:
+   `… but neither httpPlugin({ proxies }) nor httpPlugin({ addressHeader }) is set: every client counts as 10.0.0.5. Set proxies to the number of proxies in front of the server, or addressHeader to the header its platform sets with the client's address.`
+5. The documentation lists the headers above, with the rule: only a header
+   the platform writes over the client's, and only on a server no client
+   reaches around the platform.
+6. password's ceiling per address (D-114) does not count a loopback or
+   private address, nor a carrier-grade NAT, link-local or unique local
+   one: the ranges http calls nearby (D-116, D-218), read with `ipaddr.js`,
+   which password already uses. The ten failures per account and address,
+   and the hundred per account, still count it.
+
+Why: some platforms put a proxy in front of the server that sets the
+client's address in a header of their own, and put in `X-Forwarded-For` an
+address of their own ingress, not the client's. No number of `proxies`
+reads the client there: every client then counts as the ingress, and a
+hundred wrong passwords from anyone lock every account out of signing in
+for 15 minutes. D-116 refused these headers because they are forged when
+the server is reached around the platform; on a platform that writes the
+header over the client's and gives no other way in, it is the only correct
+source, and the choice is the application's, as `proxies` is. A value that
+is not one address means the request did not come through the platform as
+expected, so it is not trusted, and the warning says so once. Behind a proxy
+whose setting is wrong, every client shares one private address: its
+ceiling would let one person lock out every user, while a real client never
+connects from a private address to a public server.
+
+Rejected:
+
+- Detecting the platform from its environment variables, as D-116
+  rejected for `proxies`: one more way to set one value, which breaks
+  when a platform renames its variables.
+- Allowing both options, the header first: two sources, and a server that
+  reads `X-Forwarded-For` when the platform forgets the header.
+- A list of headers: one platform sets one header.
+- Not counting a private address in password's every limit: the ten
+  failures per account and address would then fall back to the account's
+  hundred.
+- Importing http's `isNearby` in password: password does not depend on
+  http, which is one transport among others.
+
+Example, before:
+
+```ts
+// On DigitalOcean App Platform, X-Forwarded-For holds the ingress's address
+defineApp({ plugins: [httpPlugin({ proxies: 1 })] })
+// every client counts as 10.244.0.7: a hundred wrong passwords from one
+// person lock every account for 15 minutes
+```
+
+After:
+
+```ts
+defineApp({
+	plugins: [httpPlugin({ addressHeader: process.env['HTTP_ADDRESS_HEADER'] })],
+})
+// HTTP_ADDRESS_HEADER=do-connecting-ip
+// clientOf(c).client.address === '203.0.113.7', the client's
 ```

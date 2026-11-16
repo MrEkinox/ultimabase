@@ -22,6 +22,7 @@ The full example, with its tests: [`examples/http`](https://github.com/MrEkinox/
 | serve routes of your own                 | [`httpPlugin({ routes })`](#serve-your-routes)    |
 | act as the request's caller              | [`c.var.caller`](#the-caller)                     |
 | read the client's address behind a proxy | [`proxies`](#the-caller)                          |
+| read it in a header its platform sets    | [`addressHeader`](#a-platforms-header)            |
 | limit the requests of an address         | [`rateLimit`](#rate-limit)                        |
 | check a body, a query or a header        | [`validate(target, schema)`](#validate-a-request) |
 | take a provider's signed webhook         | [`c.req.text()`](#a-signed-webhook)               |
@@ -86,6 +87,33 @@ which a client cannot forge. With `proxies: 1`, as in the application above:
 An entry with the port a proxy appended counts as its address:
 `203.0.113.7:5678` is `203.0.113.7`, `[2001:db8::1]:443` is `2001:db8::1`.
 
+### A platform's header
+
+Some platforms put the client's address in a header of their own, and their
+own address in `X-Forwarded-For`: no number of `proxies` reads the client
+there. `addressHeader` names that header instead, and the address is read
+from it alone:
+
+<include cwd meta='title="src/platform.ts"'>
+	../examples/http/src/platform.ts#platform
+</include>
+
+| Platform                  | Header             |
+| ------------------------- | ------------------ |
+| DigitalOcean App Platform | `do-connecting-ip` |
+| Cloudflare                | `cf-connecting-ip` |
+| Fly.io                    | `fly-client-ip`    |
+
+A client can send any header. Set `addressHeader` only to a header the
+platform writes over the client's, and only on a server that no client
+reaches around the platform: otherwise each client picks its address, and
+escapes every limit.
+
+The header must hold one address, a port dropped. Missing, sent twice, a
+list or not an address, the address is the connection's, and the first such
+request logs a warning. `addressHeader` and `proxies` are exclusive: the
+start fails when both are set.
+
 ## Rate limit
 
 Each client address may send 600 requests a minute. `rateLimit` changes
@@ -111,7 +139,7 @@ The tests set `rateLimit` to 100 requests and send 100 from
 - WebSocket upgrades and each operation sent over a socket count too.
 - An operation over the limit on a GraphQL socket fails with the same
   `TOO_MANY_ATTEMPTS` and `details.retryAfter`; the socket stays open.
-- The address is the one `proxies` reads. An IPv6 address counts by its
+- The address is the one `proxies` or `addressHeader` reads. An IPv6 address counts by its
   /64, and a local or private address is never counted.
 - The master key passes over the limit. Once an address sent a wrong one
   there, its master-key requests are refused until the window ends.
@@ -331,9 +359,12 @@ A route that needs no database is called directly:
 - The caller is known before any route runs. A route that checks a token of
   its own reads another header, as `X-Maintenance-Token`; a request with
   neither a Bearer header nor a session cookie looks up no session.
-- Without `proxies`, a request with `X-Forwarded-For` from a local network
-  logs a warning once: every client would count as the proxy, and
-  [password](/docs/next/password)'s limits would block them all at once.
+- Without `proxies` or `addressHeader`, a request with `X-Forwarded-For`
+  from a local network logs a warning once: every client would count as the
+  proxy, and [password](/docs/next/password)'s limits would block them all
+  at once.
+- With `addressHeader`, the first request without one address in that
+  header logs a warning once, naming the address it counts as.
 - `/health` and `/ready` come before every route, the application's
   included: they read no caller, and no CORS applies.
 - Until every plugin started, every other request and WebSocket upgrade
@@ -352,16 +383,17 @@ A route that needs no database is called directly:
 
 ### `httpPlugin(options)`
 
-| Option      | Type                              | Default                         | Effect                                                             |
-| ----------- | --------------------------------- | ------------------------------- | ------------------------------------------------------------------ |
-| `routes`    | `routes()[]`                      | none                            | Mounted at the root, in their order, before the plugins' own.      |
-| `cors`      | origins                           | none                            | The origins a browser may call from, with its cookies.             |
-| `port`      | number                            | `PORT`, then 3000               | Where the server listens.                                          |
-| `bodyLimit` | whole number of bytes             | 1 MB                            | The largest request body; files take their own limit.              |
-| `proxies`   | whole number                      | 0                               | The proxies in front of the server, read in `X-Forwarded-For`.     |
-| `rateLimit` | `{ requests, window }` or `false` | 600 per 60 000 ms               | Each address's requests and upgrades in a window, in milliseconds. |
-| `upgrade`   | function                          | none                            | Answers each WebSocket upgrade: a `Response` refuses it.           |
-| `drain`     | milliseconds                      | 5000 in production, 0 otherwise | How long the stop waits once `/ready` answers 503.                 |
+| Option          | Type                              | Default                         | Effect                                                                      |
+| --------------- | --------------------------------- | ------------------------------- | --------------------------------------------------------------------------- |
+| `routes`        | `routes()[]`                      | none                            | Mounted at the root, in their order, before the plugins' own.               |
+| `cors`          | origins                           | none                            | The origins a browser may call from, with its cookies.                      |
+| `port`          | number                            | `PORT`, then 3000               | Where the server listens.                                                   |
+| `bodyLimit`     | whole number of bytes             | 1 MB                            | The largest request body; files take their own limit.                       |
+| `proxies`       | whole number                      | 0                               | The proxies in front of the server, read in `X-Forwarded-For`.              |
+| `addressHeader` | header name                       | none                            | The header the platform sets with the client's address; not with `proxies`. |
+| `rateLimit`     | `{ requests, window }` or `false` | 600 per 60 000 ms               | Each address's requests and upgrades in a window, in milliseconds.          |
+| `upgrade`       | function                          | none                            | Answers each WebSocket upgrade: a `Response` refuses it.                    |
+| `drain`         | milliseconds                      | 5000 in production, 0 otherwise | How long the stop waits once `/ready` answers 503.                          |
 
 Outside production, local origins over `http:` are allowed besides `cors`,
 and `POST /_ultimabase/reset` empties the database for the master key, for
@@ -469,8 +501,12 @@ A `PublicError` takes its code's status: `ACCESS_DENIED` 403, `NOT_FOUND`
 `RELATION_SIZE` and `CONFLICT` 409, `UNAUTHENTICATED` and `INVALID_CREDENTIALS` 401, `TOO_MANY_ATTEMPTS`
 429 and `UNAVAILABLE` 503 with `Retry-After`, any other code 400.
 
-At start: `proxies is 1.5, not a whole number of proxies in front of the
-server.`, `rateLimit.requests is 0, not a whole number above 0.`,
+At start, the address options are checked: `proxies is 1.5, not a whole
+number of proxies in front of the server.`, `proxies and addressHeader are
+both set: set the one the hosting needs.`, `addressHeader is
+X-Forwarded-For, which a client writes into: set proxies instead.`
+
+The other options too: `rateLimit.requests is 0, not a whole number above 0.`,
 `bodyLimit is NaN, not a whole number of bytes above 0.`, `drain is -1, not
 a whole number of milliseconds.`, and `PORT is 80a, not a port between 0
 and 65535.`

@@ -244,7 +244,7 @@ describe('an upgrade', () => {
 		expect(
 			warnings.map((each) => typeof each === 'string' && each.split(':')[0]),
 		).toStrictEqual([
-			'A request came through a proxy (X-Forwarded-For) but httpPlugin({ proxies }) is not set',
+			'A request came through a proxy (X-Forwarded-For) but neither httpPlugin({ proxies }) nor httpPlugin({ addressHeader }) is set',
 		])
 	})
 

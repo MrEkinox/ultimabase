@@ -106,6 +106,22 @@ describe('the sign-in limit', () => {
 		})
 	})
 
+	it('lets a nearby address fail on every account, ten times each (D-405)', async () => {
+		await server()
+		for (const address of ['10.0.0.5', 'fd00::1', '::ffff:127.0.0.1']) {
+			for (let failure = 0; failure < 100; failure += 1) {
+				await fail(`user${failure}@example.com`, address)
+			}
+			expect(await fail('ada@example.com', address)).toMatchObject({
+				code: 'INVALID_CREDENTIALS',
+			})
+		}
+		for (let failure = 1; failure < 10; failure += 1) {
+			await fail('ada@example.com', '10.0.0.5')
+		}
+		expect(await fail('ada@example.com', '10.0.0.5')).toMatchObject(tooMany)
+	})
+
 	it('retries after the later of the two limits', async () => {
 		await server()
 		const now = Date.now()
@@ -168,7 +184,7 @@ describe('the sign-in limit', () => {
 		}
 		const running = await started(undefined, adapter)
 		stop = async () => running.app.stop()
-		expect(await fail('ada', '::1')).toMatchObject({
+		expect(await fail('ada', '2001:db8::1')).toMatchObject({
 			code: 'INVALID_CREDENTIALS',
 		})
 		expect(peak).toBe(3)

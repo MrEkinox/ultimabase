@@ -55,6 +55,12 @@ export interface HttpOptions {
 	/** In front of the server, which then reads the client's address from `X-Forwarded-For`; 0 by default (D-116). */
 	readonly proxies?: number
 	/**
+	 * The header the platform in front of the server sets with the client's
+	 * address, as `do-connecting-ip`; not with `proxies` (D-405). Unset when
+	 * `undefined`, as an environment variable that is not set.
+	 */
+	readonly addressHeader?: string | undefined
+	/**
 	 * Answers each WebSocket upgrade before the plugin that takes it: a
 	 * response refuses it, as during maintenance (D-166).
 	 */
