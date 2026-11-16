@@ -1,6 +1,6 @@
 {
 	"name": "@ultimabase/stripe",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "Stripe for UltimaBase: a catalog declared in code, sold on Stripe's Checkout, with subscriptions, purchases and credits kept in the application's models.",
 	"type": "module",
 	"license": "Apache-2.0",
@@ -35,10 +35,10 @@
 		}
 	},
 	"peerDependencies": {
-		"@ultimabase/http": "^1.0.0",
-		"@ultimabase/jobs": "^1.0.0",
-		"@ultimabase/testing": "^1.0.0",
-		"ultimabase": "^1.0.0"
+		"@ultimabase/http": "^1.1.0",
+		"@ultimabase/jobs": "^1.1.0",
+		"@ultimabase/testing": "^1.1.0",
+		"ultimabase": "^1.1.0"
 	},
 	"peerDependenciesMeta": {
 		"@ultimabase/testing": {

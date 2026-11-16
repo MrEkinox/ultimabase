@@ -1,5 +1,21 @@
 # @ultimabase/rest
 
+## 1.1.0
+
+### Minor Changes
+
+- 44fd95d: A query's `where` filters a single plugin field, a file field for instance, on its presence:
+  `{ attachment: null }` or `{ attachment: { not: null } }` (D-404). GraphQL types it as
+  `PresenceFilter`, and OpenAPI as the component of the same name.
+
+### Patch Changes
+
+- Updated dependencies [4357de4]
+- Updated dependencies [44fd95d]
+  - @ultimabase/http@1.1.0
+  - ultimabase@1.1.0
+  - @ultimabase/realtime@1.1.0
+
 ## 1.0.0
 
 ### Patch Changes
