@@ -19,7 +19,7 @@ import { refOf } from './sdk-common.ts'
 
 /** What `stripeSandbox` takes. */
 export interface SandboxOptions {
-	/** The sandbox's secret key, sk_test_…; `undefined` is refused, as an unset variable. */
+	/** The sandbox's secret or restricted key, sk_test_… or rk_test_…; `undefined` is refused, as an unset variable. */
 	readonly secret: string | undefined
 	/** The webhook secret of the application's `stripePlugin`, which signs what `deliver` posts. */
 	readonly webhook: string
@@ -94,12 +94,12 @@ const day = 24 * 60 * 60
 function sandboxKey(secret: unknown): string {
 	if (typeof secret !== 'string' || secret === '') {
 		throw new Refused(
-			`${entry}: secret is the secret key of a Stripe sandbox, sk_test_…: set it in the environment that runs these tests.`,
+			`${entry}: secret is the secret or restricted key of a Stripe sandbox, sk_test_… or rk_test_…: set it in the environment that runs these tests.`,
 		)
 	}
-	if (!secret.startsWith('sk_test_')) {
+	if (!/^(?:sk|rk)_test_/u.test(secret)) {
 		throw new Refused(
-			`${entry} runs on a sandbox only: secret is a test secret key, sk_test_….`,
+			`${entry} runs on a sandbox only: secret is a test key, sk_test_… or rk_test_….`,
 		)
 	}
 	return secret

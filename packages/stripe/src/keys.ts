@@ -1,6 +1,6 @@
 // The checks every catalog definition shares: its keys, and the names it
 // gives. A product's key and a price's name make the price's lookup key,
-// `<product>.<price>`, so neither holds a dot.
+// `<product>.<price>`, so neither holds a dot. And Stripe's API keys.
 import { Refused } from 'ultimabase'
 
 const named = /^[\w-]+$/u
@@ -41,3 +41,20 @@ export function checkKey(where: string, key: unknown): void {
 		)
 	}
 }
+
+// A secret or restricted key, and its mode (D-406).
+const apiKey = /^(?:sk|rk)_(test|live)_/u
+
+/** Refuses what is not a secret or restricted key, `sk_…` or `rk_…`. */
+export function checkSecret(
+	where: string,
+	secret: unknown,
+): asserts secret is string {
+	if (typeof secret !== 'string' || !apiKey.test(secret)) {
+		throw new Refused(`${where} is a secret or restricted key, sk_… or rk_….`)
+	}
+}
+
+/** Whether a key checked by `checkSecret` reaches the live account. */
+export const isLive = (secret: string): boolean =>
+	apiKey.exec(secret)?.[1] === 'live'

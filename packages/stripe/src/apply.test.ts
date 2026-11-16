@@ -80,21 +80,26 @@ Stripe catalog: applied.
 		expect(fake.products.size).toBe(0)
 	})
 
-	it('names a live key', async () => {
-		const fake = fakeStripe()
-		// A live key of the fake: what is printed reads the key alone.
-		addFake('sk_live_fake', gatewayOf(fake.secret))
-		expect(
-			await printed(() =>
-				applyStripeCatalog({ ...options('sk_live_fake'), dryRun: true }),
-			),
-		).toContain('Stripe catalog (live mode): 3 changes, dry run:')
-	})
+	it.each(['sk_live_fake', 'rk_live_fake'])(
+		'names a live key, %s',
+		async (key) => {
+			const fake = fakeStripe()
+			// A live key of the fake: what is printed reads the key alone.
+			addFake(key, gatewayOf(fake.secret))
+			expect(
+				await printed(() =>
+					applyStripeCatalog({ ...options(key), dryRun: true }),
+				),
+			).toContain('Stripe catalog (live mode): 3 changes, dry run:')
+		},
+	)
 
 	it('refuses options Stripe would refuse, naming the option', async () => {
-		await expect(refused({ secret: undefined })).rejects.toThrow(
-			"applyStripeCatalog: secret is the account's secret key, sk_….",
-		)
+		for (const secret of [undefined, 'pk_live_x']) {
+			await expect(refused({ secret })).rejects.toThrow(
+				'applyStripeCatalog: secret is a secret or restricted key, sk_… or rk_….',
+			)
+		}
 		await expect(refused({ currency: 'EUR' })).rejects.toThrow(
 			'applyStripeCatalog: currency is a lowercase ISO code, as eur.',
 		)

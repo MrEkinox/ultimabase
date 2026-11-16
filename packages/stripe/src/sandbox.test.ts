@@ -98,11 +98,15 @@ describe('stripeSandbox', () => {
 	it.each([
 		[
 			{ secret: undefined, webhook: 'whsec_1' },
-			'stripeSandbox: secret is the secret key of a Stripe sandbox, sk_test_…: set it in the environment that runs these tests.',
+			'stripeSandbox: secret is the secret or restricted key of a Stripe sandbox, sk_test_… or rk_test_…: set it in the environment that runs these tests.',
 		],
 		[
 			{ secret: 'sk_live_1', webhook: 'whsec_1' },
-			'stripeSandbox runs on a sandbox only: secret is a test secret key, sk_test_….',
+			'stripeSandbox runs on a sandbox only: secret is a test key, sk_test_… or rk_test_….',
+		],
+		[
+			{ secret: 'rk_live_1', webhook: 'whsec_1' },
+			'stripeSandbox runs on a sandbox only: secret is a test key, sk_test_… or rk_test_….',
 		],
 		[
 			{ secret: 'sk_test_1', webhook: '' },
@@ -114,6 +118,11 @@ describe('stripeSandbox', () => {
 		],
 	])('refuses %j', (options, message) => {
 		expect(() => stripeSandbox(options)).toThrow(message)
+	})
+
+	it('takes a restricted key of a sandbox', () => {
+		const sandbox = stripeSandbox({ secret: 'rk_test_1', webhook: 'whsec_1' })
+		expect(sandbox.run).toMatch(/^ub_/u)
 	})
 
 	it('names its addresses after the run', () => {

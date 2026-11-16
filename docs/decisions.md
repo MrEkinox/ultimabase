@@ -22753,7 +22753,7 @@ export const Thing = defineModel({
 
 ## D-371: `@ultimabase/stripe`, payments on Stripe's hosted pages
 
-Amended by D-375, D-376, D-378 and D-379.
+Amended by D-375, D-376, D-378, D-379 and D-406.
 
 Choice: an official plugin sells subscriptions, one-time products and
 credits through Stripe, for any application.
@@ -22839,7 +22839,7 @@ stripePlugin({
 
 ## D-372: The catalog in code: `defineProduct` and `defineCredit`
 
-Amended by D-376 and D-377.
+Amended by D-376, D-377 and D-406.
 
 Choice: an application declares what it sells with values it imports, and
 the plugin writes them to Stripe.
@@ -24581,6 +24581,8 @@ crash between the two still leaks.
 
 ## D-401: `@ultimabase/stripe/sandbox`, an application's tests on a Stripe sandbox
 
+Amended by D-406.
+
 Choice: amends D-371 point 8 and D-378; adds an entry point.
 
 1. `@ultimabase/stripe/sandbox` exports `stripeSandbox({ secret, webhook })`:
@@ -24926,4 +24928,69 @@ defineApp({
 })
 // HTTP_ADDRESS_HEADER=do-connecting-ip
 // clientOf(c).client.address === '203.0.113.7', the client's
+```
+
+## D-406: Stripe's restricted keys are taken
+
+Choice: amends D-371 point 2, D-372 point 4 and D-401 point 1.
+
+1. `stripePlugin`'s `keys.secret` and `applyStripeCatalog`'s `secret` take
+   a secret key or a restricted key: `sk_test_…`, `sk_live_…`, `rk_test_…`
+   or `rk_live_…`. Any other value, as a publishable key `pk_…` or a key
+   without its mode, is refused at start:
+   `stripePlugin: keys.secret is a secret or restricted key, sk_… or rk_….`
+   The message never quotes the value.
+2. The mode is read from that prefix: `_live_` after `sk` or `rk` is the
+   live account. The webhook's `livemode` check (D-371 point 4) and the
+   mode `applyStripeCatalog` prints follow it.
+3. `stripeSandbox` takes `sk_test_…` or `rk_test_…`, and refuses any other:
+   `stripeSandbox runs on a sandbox only: secret is a test key, sk_test_… or rk_test_….`
+4. The documentation lists the permissions each needs, read from the calls
+   the package makes. The server: Customers, Checkout Sessions,
+   Subscriptions and Customer portal written; Products, Prices, Invoices,
+   PaymentIntents, Charges and Disputes read; Charges written when it
+   refunds (`oneSubscription`, `risk`). `applyStripeCatalog` writes
+   Products, Prices and Customer portal, so the server's key needs no
+   write on the catalog. `stripeSandbox` adds Events read and Test clocks
+   written.
+
+Why: Stripe advises a restricted key for a server, and a security review
+asks for one; the plugin refused it on its prefix alone, so the only way to
+start was the key that can do everything. `applyStripeCatalog` already took
+any key, so the two entry points disagreed. A restricted key reaches the
+same API with fewer rights: a call it is not allowed fails as any Stripe
+error does, and the catalog compared at start only warns.
+
+Rejected:
+
+- Taking any non-empty string, as `applyStripeCatalog` did: a publishable
+  key or a variable pasted wrong starts the server, and every payment
+  fails later.
+- Checking the key's permissions at start: Stripe has no call that lists
+  them, and probing each endpoint writes or costs a call per start.
+- No list of permissions: an application would find each missing one in
+  production, one failed payment at a time.
+
+Example, before:
+
+```ts
+stripePlugin({
+	keys: {
+		secret: process.env.STRIPE_SECRET_KEY,
+		webhook: process.env.STRIPE_WEBHOOK_SECRET,
+	},
+	currency: 'eur',
+	products: [pro],
+})
+// STRIPE_SECRET_KEY=rk_live_…
+// stripePlugin: keys.secret is the secret key, sk_….
+```
+
+After:
+
+```ts
+// the same code
+// STRIPE_SECRET_KEY=rk_live_… starts on the live account
+// STRIPE_SECRET_KEY=pk_live_…
+// stripePlugin: keys.secret is a secret or restricted key, sk_… or rk_….
 ```

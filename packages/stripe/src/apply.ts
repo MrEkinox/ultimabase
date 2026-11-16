@@ -5,7 +5,7 @@ import { Refused } from 'ultimabase'
 import { gatewayOf } from './accounts.ts'
 import { type Catalog, applyCatalog, planCatalog } from './catalog.ts'
 import { describeStep } from './describe.ts'
-import { ownKeys } from './keys.ts'
+import { checkSecret, isLive, ownKeys } from './keys.ts'
 import { type PortalOptions, checkPortal } from './portal.ts'
 import type { Product } from './product.ts'
 
@@ -76,15 +76,13 @@ export async function applyStripeCatalog(
 ): Promise<void> {
 	ownKeys(entry, options, optionKeys)
 	const { secret, dryRun = false } = options
-	if (typeof secret !== 'string' || secret === '') {
-		throw new Refused(`${entry}: secret is the account's secret key, sk_….`)
-	}
+	checkSecret(`${entry}: secret`, secret)
 	const catalog = catalogOf(entry, options)
 	const { currency } = catalog
 	const gateway = gatewayOf(secret)
 	const state = await gateway.readCatalog()
 	const steps = planCatalog(catalog, state)
-	const mode = secret.includes('_live_') ? 'live' : 'test'
+	const mode = isLive(secret) ? 'live' : 'test'
 	if (steps.length === 0) {
 		print(`Stripe catalog (${mode} mode): up to date.`)
 		return
