@@ -46,6 +46,8 @@ const notCodes = new Set([
 	'REST',
 	// files' browser client: an upload that reached no server.
 	'NETWORK',
+	// push: the VAPID token's signing algorithm (D-408).
+	'ES256',
 ])
 
 // The kernel's query errors, which every transport sends as BAD_USER_INPUT.

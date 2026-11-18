@@ -1,0 +1,48 @@
+{
+	"name": "@ultimabase/push",
+	"version": "1.0.0",
+	"description": "Push notifications for UltimaBase: Web Push to the devices a user signed in on, each tied to its session.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"homepage": "https://ultimabase.dev/docs/push",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimabase.git",
+		"directory": "packages/push"
+	},
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"bin": "./src/cli.ts",
+	"exports": {
+		".": "./src/index.ts",
+		"./testing": "./src/testing.ts"
+	},
+	"files": [
+		"dist",
+		"src",
+		"!src/**/*.test.ts",
+		"!src/test"
+	],
+	"scripts": {
+		"prepack": "rm -rf dist && yarn run -T tsc --project tsconfig.build.json"
+	},
+	"publishConfig": {
+		"bin": "./dist/cli.js",
+		"exports": {
+			".": "./dist/index.js",
+			"./testing": "./dist/testing.js"
+		}
+	},
+	"peerDependencies": {
+		"@ultimabase/auth": "^1.0.0",
+		"ultimabase": "^1.0.0"
+	},
+	"devDependencies": {
+		"@ultimabase/auth": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"ultimabase": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}

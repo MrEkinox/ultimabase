@@ -1,0 +1,28 @@
+{
+	"name": "example-push",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Push notifications: a browser subscribes for its signed-in user, and the server notifies each of the user's devices.",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=24.7.0"
+	},
+	"scripts": {
+		"start": "node src/server.ts"
+	},
+	"dependencies": {
+		"@ultimabase/auth": "workspace:*",
+		"@ultimabase/http": "workspace:*",
+		"@ultimabase/password": "workspace:*",
+		"@ultimabase/push": "workspace:*",
+		"@ultimabase/rest": "workspace:*",
+		"ultimabase": "workspace:*",
+		"zod": "4.6.7"
+	},
+	"devDependencies": {
+		"@ultimabase/testing": "workspace:*",
+		"vite": "8.3.4",
+		"vitest": "5.0.5"
+	}
+}
