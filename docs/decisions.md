@@ -24994,3 +24994,203 @@ After:
 // STRIPE_SECRET_KEY=pk_live_…
 // stripePlugin: keys.secret is a secret or restricted key, sk_… or rk_….
 ```
+
+## D-407: A user caller carries its session
+
+Choice: auth completes a user caller with its session (D-121).
+
+1. auth's `caller` part adds `session?: { readonly id: string }`, typed on
+   `UserCallerKeys` by declaration merging. It is the session of the token
+   Identify read, from the bearer or the cookie, over HTTP or a WebSocket.
+   A user caller that no token built, as `asUser` in a test, a script or a
+   job, has `session: undefined`. Anonymous and Master callers carry no key
+   (D-121). The key is optional: a user caller an application writes by
+   hand, as `{ kind: 'user', user }` in a test, still compiles, and reading
+   it gives `{ id } | undefined` either way.
+2. The id is the `AuthSession` row's id. No token or digest leaves auth,
+   and `AuthSession` stays unexported (D-110).
+3. `AuthApi` gains `liveSessions(ids)`: the ids, among those given, of the
+   sessions that exist and have not expired, read in one query. A plugin
+   that keeps rows per session, as push (D-408), asks it before it acts on
+   them. Nothing cascades from a session to another plugin's rows.
+
+Why: a row that belongs to one signed-in device, as a push subscription,
+must end with the session that saved it, and the function that saves it
+cannot tell which session called. A session ends three ways without its
+client: it expires, `revokeSessions` ends it (a password change, a stolen
+laptop), or a sign-out elsewhere closes it. Expired sessions are deleted
+lazily (D-115), so even a cascade leaves the row of a device that never
+comes back, and its reader must check the expiry anyway. That check alone
+covers the three cases, without a foreign key.
+
+Rejected:
+
+- A relation from another plugin's model, or an application's, to
+  `AuthSession` with a cascade, as the issue proposed: it amends D-333 for
+  one plugin, and the reader still checks the expiry.
+- `expiresAt` on the key: a renewal moves it while the cached caller keeps
+  the old value (D-332), and no reader needs it.
+- A symbol key read through an exported accessor, as D-126: roles hid a
+  list so that code asks a question; a session id is read, not asked.
+- A purge job in auth that deletes expired sessions: auth does not require
+  jobs, and the check at read time is still needed between two runs.
+
+Example, before:
+
+```ts
+export const subscribeDevice = defineFunction({
+	input: deviceInput,
+	run: signedInRun(async ({ input, user }) => {
+		// Tied to the user only: a revoked laptop keeps receiving.
+		await Device.create(
+			{ data: { ...input, user: { connect: { id: user.id } } } },
+			M,
+		)
+	}),
+})
+```
+
+After:
+
+```ts
+run: signedInRun(async ({ caller }) => {
+	caller.session // { id: 'ses_…' } from a request, undefined from asUser
+})
+```
+
+## D-408: `@ultimabase/push`, notifications to a user's devices
+
+Choice: an official plugin sends push notifications to the devices a user
+signed in on. It sends Web Push now; native apps come later in the same
+plugin, with their own decision.
+
+1. `@ultimabase/push` exports `pushPlugin(options)` and `push`. The plugin
+   requires `authPlugin`. It has no dependency (D-92): Web Push's
+   encryption (RFC 8291, `aes128gcm`) and its VAPID signature (RFC 8292,
+   ES256) are built on `node:crypto`, and sent with `fetch`. The RFCs'
+   test vectors prove them.
+2. Its options: `web: { publicKey, privateKey, subject } | undefined`, the
+   VAPID keys in base64url and a `mailto:` or `https:` contact. Startup
+   refuses a malformed key or subject, without quoting the value. Without
+   `web` the application starts and warns once:
+   `pushPlugin() has no web keys: web devices are not registered and nothing is sent. Run npx @ultimabase/push keys.`
+3. Its own model (D-110), `PushDevice`, holds one device per session:
+   - `kind`, `'web'` for now;
+   - `user`, a relation to `AppUser` with `onDelete: 'cascade'` (D-333);
+   - `sessionId`, the caller's session (D-407), unique;
+   - for the web, `endpoint` (an `https:` URL, at most 2048 characters,
+     unique), `p256dh` and `auth` (base64url, at most 256 characters).
+4. `push.register(caller, { web: { endpoint, p256dh, auth } })` saves the
+   device of the caller's session and returns `true`; it returns `false`
+   without web keys. Registering again replaces the session's device. An
+   endpoint saved for another session moves to this one, user included: a
+   browser that signs in to another account stops receiving the first
+   one's. A malformed subscription is a `VALIDATION_FAILED`. A caller
+   without a session (anonymous, Master, `asUser`) is refused:
+   `push.register needs a caller signed in with a session (D-407).`
+5. `push.unregister(caller)` deletes the device of the caller's session;
+   none is no error. A user who turns notifications off on one device
+   calls it from that device; the others keep receiving.
+6. `push.send(userIds, message, options?)` sends to every device of those
+   users and returns `{ sent, gone, failed }`, counts.
+   - `message`: `{ title, body, url?, tag?, data? }`, sent as JSON. Over
+     3993 bytes encoded, it throws before sending anything.
+   - `options`: `ttl` in seconds (one day by default) and `urgency`.
+   - `tag` is the notification that replaces an older one with the same
+     tag: the service worker's `tag`, and Web Push's `Topic` header (the
+     tag itself when it fits the header's 32 URL-safe characters, its
+     digest otherwise).
+   - A device whose session `liveSessions` (D-407) does not return is
+     deleted without being sent to, and counts as gone; so is one whose
+     endpoint answers 404 or 410.
+   - Any other failure is logged and counted as failed, never retried: a
+     notification late by a retry is often wrong.
+7. The plugin adds no function, job or route, and no transport shows its
+   model. The application's functions call `register` and `unregister`,
+   with their own names and rules (as D-371 point 3), and its own jobs call
+   `send` after their own filters (settings, blocks).
+8. `push.publicKey` is the web public key, or `undefined`: the function
+   that gives the browser its `applicationServerKey` returns it.
+9. `@ultimabase/push/testing` exports `fakeWebPush()`, which the tests use
+   instead of the network: it keeps each push with its decrypted message,
+   `gone(endpoint)` makes an endpoint answer 410, and `restore()` ends it.
+10. `npx @ultimabase/push keys` prints a new pair, ready for an environment
+    file, and writes nothing:
+    `PUSH_WEB_PUBLIC_KEY=…` and `PUSH_WEB_PRIVATE_KEY=…`.
+11. The service worker and the browser's subscription stay in the
+    application. The documentation gives both, the worker reading
+    `title`, `body`, `tag` and `url`.
+
+Why: an application that notifies its users rebuilds the same pieces: the
+payload encryption, the VAPID signature, a subscription table, cleaning up
+gone endpoints, and tying each device to its session. Its access rules
+and preferences stay its own, as Stripe's functions do (D-371). A device
+belongs to a session rather than to a user: a session that ends, a
+revocation included, stops its notifications (D-407), and a user turns
+them off on one device only. One plugin for every kind of device keeps
+one `send` for the application: a native app later adds a `kind` and its
+options, not a second plugin and a second call in each job.
+
+Rejected:
+
+- The `web-push` package: it brings `jws`, `asn1.js`, `http_ece` and
+  `https-proxy-agent` for what `node:crypto` and `fetch` do (D-92).
+- A plugin per platform (`@ultimabase/web-push`, then a mobile one): each
+  job would send twice, and each would keep its own devices of a session.
+- Functions shipped by the plugin: the application could not name them or
+  add its rules.
+- A job inside the plugin that sends: the application's filters (settings,
+  blocks) run before `send`, so its own job calls it.
+- Per-category preferences per device now: no application needs them yet,
+  and they can come without breaking `send`.
+- Retrying a failed push: a stale notification is worse than none, and a
+  push service that fails briefly is rare.
+
+Example, before:
+
+```ts
+// The application's own plugin, model, functions and job: encryption,
+// VAPID, a subscription table, 404/410 clean-up, devices tied to users.
+await webPush.send(subscription, payload, { ttl: 86_400, topic })
+```
+
+After:
+
+```ts
+// app.ts
+plugins: [
+	httpPlugin(),
+	authPlugin(),
+	passwordPlugin(),
+	pushPlugin({
+		web: {
+			publicKey: process.env.PUSH_WEB_PUBLIC_KEY,
+			privateKey: process.env.PUSH_WEB_PRIVATE_KEY,
+			subject: 'mailto:ops@example.com',
+		},
+	}),
+]
+
+// functions
+export const subscribePush = defineFunction({
+	input: (f) => ({
+		endpoint: f.string(),
+		p256dh: f.string(),
+		auth: f.string(),
+	}),
+	run: signedInRun(({ caller, input }) =>
+		push.register(caller, { web: input }),
+	),
+})
+export const unsubscribePush = defineFunction({
+	run: signedInRun(({ caller }) => push.unregister(caller)),
+})
+
+// the application's job, after its own filters
+const { gone } = await push.send([recipient.id], {
+	title: 'New message',
+	body: 'Ada: see you tomorrow?',
+	url: `/chats/${chat.id}`,
+	tag: `chat-${chat.id}`,
+})
+```

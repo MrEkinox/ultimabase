@@ -147,6 +147,26 @@ export async function sessionOf(
 	return found(session.expiresAt)
 }
 
+/**
+ * The ids, among `ids`, of the sessions that exist, have not expired and
+ * whose user is not in the trash (D-407).
+ */
+export async function liveSessions(
+	ids: readonly string[],
+): Promise<ReadonlySet<string>> {
+	if (ids.length === 0) return new Set()
+	const rows = await AuthSession.findMany(
+		{
+			where: { id: { in: [...ids] }, expiresAt: { gt: new Date(Date.now()) } },
+			select: { id: true, user: { select: { id: true } } },
+		},
+		M,
+	)
+	// A user in the trash has its sessions back once restored (D-333).
+	const held = rows.filter(({ user }) => user !== null)
+	return new Set(held.map(({ id }) => id))
+}
+
 /** Ends the session `token` opened, if any. */
 export async function closeSession(token: string): Promise<void> {
 	await AuthSession.deleteMany({ where: { tokenHash: digest(token) } }, M)
