@@ -40,6 +40,7 @@ import {
 	AuthSession,
 	closeSession,
 	durationsOf,
+	liveSessions,
 	openSession,
 	revokeSessions,
 	sessionOf,
@@ -48,6 +49,23 @@ import type { Cookie } from './token.ts'
 import { bearerOf, cookieAge, cookieOf, cookieTokenOf } from './token.ts'
 
 export type { Opened } from './sessions.ts'
+
+/** The session a user caller was read from (D-407). */
+export interface CallerSession {
+	/** The session's id, never its token. */
+	readonly id: string
+}
+
+declare module 'ultimabase' {
+	interface UserCallerKeys {
+		/**
+		 * The session of the token the caller was read from; `undefined` for
+		 * a user caller no token built, as `asUser` (D-407). Optional, so that
+		 * a caller written by hand compiles.
+		 */
+		readonly session?: CallerSession | undefined
+	}
+}
 
 /** What auth offers the sign-in methods (D-33, D-112, D-113). */
 export interface AuthApi {
@@ -73,6 +91,8 @@ export interface AuthApi {
 	subjectOf(userId: string, method: string): Promise<string | undefined>
 	/** Unlinks `userId`'s account of `method`; none linked is no error (D-162). */
 	unlinkAccount(userId: string, method: string): Promise<void>
+	/** The ids, among `ids`, of the sessions still live (D-407). */
+	liveSessions(ids: readonly string[]): Promise<ReadonlySet<string>>
 }
 
 /** `authPlugin()`'s options (D-165). */
@@ -113,6 +133,8 @@ interface State {
 const states = new WeakMap<object, State>()
 /** The contexts whose insecure cookie was warned about (D-115). */
 const warned = new WeakSet<object>()
+/** The session each user row read from a token belongs to (D-407). */
+const rowSessions = new WeakMap<object, CallerSession>()
 
 const M = { as: master }
 
@@ -162,6 +184,7 @@ async function readCaller(
 	// The completed caller keeps this row (D-121).
 	callerTokens.set(caller.user, token)
 	const { id, userId, expiresAt, renewAt } = session
+	rowSessions.set(caller.user, Object.freeze({ id }))
 	return { caller, sessionId: id, userId, expiresAt, renewAt }
 }
 
@@ -200,6 +223,8 @@ const auth = definePlugin<Auth>({
 			droppedUser(record.id)
 		},
 	},
+	// The row Identify read keeps its session; any other row has none.
+	caller: ({ user }) => ({ session: rowSessions.get(user) }),
 	commands: () => ({
 		revokeSessions: async ({ id }, options) => {
 			selfOrMaster(options?.as, id, 'revokeSessions')
@@ -237,6 +262,7 @@ const auth = definePlugin<Auth>({
 			accountOf,
 			subjectOf,
 			unlinkAccount,
+			liveSessions,
 		}
 	},
 	// A sign-in method requires auth: without one, nobody signs in (D-164).

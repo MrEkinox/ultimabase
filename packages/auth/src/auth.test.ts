@@ -7,7 +7,7 @@ import { httpPlugin } from '@ultimabase/http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Adapter, Caller, PluginTypes } from 'ultimabase'
 import { defineApp, defineModel, definePlugin, memory } from 'ultimabase'
-import { recording } from 'ultimabase/internal'
+import { completedCaller, recording } from 'ultimabase/internal'
 import { AuthAccount } from './accounts.ts'
 import { authPlugin, defineUser } from './index.ts'
 import { AuthSession } from './sessions.ts'
@@ -161,6 +161,56 @@ describe('a session', () => {
 		expect(session?.user?.id).toBe(ada.id)
 		expect(session?.tokenHash).not.toBe(token)
 		expect(session?.tokenHash).toMatch(/^[\w-]{43}$/)
+	})
+})
+
+const identifiedBy = async (url: string, headers: Record<string, string>) =>
+	given.identify?.(new Request(url, { headers }))
+
+const live = async (ids: readonly string[]) => given.auth?.liveSessions(ids)
+
+describe('the caller’s session (D-407)', () => {
+	it('is the session of the token the caller was read from', async () => {
+		const { url, ada } = await server()
+		const first = await signIn(url, ada.id)
+		const second = await signIn(url, ada.id)
+		const sessions = await AuthSession.findMany(
+			{ orderBy: { createdAt: 'asc' } },
+			M,
+		)
+		const ids = sessions.map(({ id }) => ({ id }))
+		const byBearer = await identifiedBy(url, bearer(first.token))
+		const byCookie = await identifiedBy(url, cookie(second.token))
+		expect(byBearer).toMatchObject({ kind: 'user', session: ids[0] })
+		expect(byCookie).toMatchObject({ kind: 'user', session: ids[1] })
+	})
+
+	it('is undefined for a user caller no token built', async () => {
+		const { ada } = await server()
+		const caller = await completedCaller({ kind: 'user', user: ada })
+		expect(caller).toMatchObject({ kind: 'user', session: undefined })
+	})
+
+	it('is live until it is revoked or expires', async () => {
+		const { url, ada } = await server()
+		const bob = await User.create({ data: { email: 'bob@example.com' } }, M)
+		await signIn(url, ada.id)
+		await signIn(url, bob.id)
+		const sessions = await AuthSession.findMany(
+			{ include: { user: { select: { id: true } } } },
+			M,
+		)
+		const ids = sessions.map(({ id }) => id)
+		const adas = sessions.filter(({ user }) => user?.id === ada.id)
+		expect(await live([])).toStrictEqual(new Set())
+		expect(await live([...ids, 'unknown'])).toStrictEqual(new Set(ids))
+		await fetch(`${url}/revoke`, {
+			method: 'POST',
+			body: JSON.stringify({ id: bob.id }),
+		})
+		expect(await live(ids)).toStrictEqual(new Set(adas.map(({ id }) => id)))
+		vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 30 * day + 1)
+		expect(await live(ids)).toStrictEqual(new Set())
 	})
 })
 

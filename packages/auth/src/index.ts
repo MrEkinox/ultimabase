@@ -6,6 +6,7 @@ export type {
 	AuthApi,
 	AuthCommands,
 	AuthOptions,
+	CallerSession,
 	Opened,
 } from './plugin.ts'
 export { authPlugin } from './plugin.ts'

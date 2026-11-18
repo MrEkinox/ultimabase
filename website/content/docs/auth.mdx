@@ -364,3 +364,9 @@ password does, starts, but nobody signs in: auth logs the warning
   returns the token alone. Over a WebSocket, a sign-in or a sign-out is
   refused before it writes; a plugin's own sign-in calls
   `plugins.auth.needsCookies(client)` first to refuse the same way.
+- A signed-in caller carries `caller.session`, the `{ id }` of the session
+  its token opened, never the token; a caller built in server code, as with
+  `asUser`, has none. A plugin that keeps something per device, as push
+  notifications, ties it to that id, and `plugins.auth.liveSessions(ids)`
+  answers which of them are still live: not revoked, signed out, expired or
+  with their user in the trash.
