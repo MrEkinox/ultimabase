@@ -211,13 +211,32 @@ describe('push.send', () => {
 			gone: 0,
 			failed: 0,
 		})
+		expect(fake.pushes).toStrictEqual([])
 		await stop()
-		const keyless = await running({ web: undefined })
+		// A device of a live session, saved before the keys were removed.
+		const keyless = await running('none')
+		const caller = await signedIn(keyless.ada.id)
+		const sessionId = caller.kind === 'user' ? caller.session?.id : undefined
+		const { endpoint, p256dh, auth } = keyless.fake.subscription()
+		await PushDevice.create(
+			{
+				data: {
+					kind: 'web',
+					user: { connect: { id: keyless.ada.id } },
+					sessionId: sessionId ?? '',
+					endpoint,
+					p256dh,
+					auth,
+				},
+			},
+			M,
+		)
 		expect(await push.send([keyless.ada.id], message)).toStrictEqual({
 			sent: 0,
 			gone: 0,
 			failed: 0,
 		})
-		expect(fake.pushes).toStrictEqual([])
+		expect(keyless.fake.pushes).toStrictEqual([])
+		expect(await endpoints()).toStrictEqual([endpoint])
 	})
 })
