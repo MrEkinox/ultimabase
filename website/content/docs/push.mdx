@@ -1,0 +1,129 @@
+---
+title: Push
+description: Send notifications to the devices a user signed in on, with Web Push, from the application's own functions and jobs.
+---
+
+`@ultimabase/push` sends notifications to the devices a user signed in on.
+Each device belongs to a session: a sign-out, or a session revoked, stops
+its notifications, and a user turns them off on one device only. It sends
+Web Push to browsers, encrypted and signed on `node:crypto`, with no
+dependency.
+
+```npm
+npm install @ultimabase/push
+```
+
+## The plugin
+
+`pushPlugin` needs `authPlugin`, whose sessions own the devices. Its `web`
+option takes the application's keys and a contact for the push services, a
+`mailto:` or `https:` URL.
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/push/src/app.ts#plugin
+</include>
+
+<include cwd meta='title="src/app.ts"'>
+	../examples/push/src/app.ts#app
+</include>
+
+This command prints a new pair of keys, ready for an environment file, and
+writes nothing:
+
+```bash
+npx @ultimabase/push keys
+```
+
+- It prints `PUSH_WEB_PUBLIC_KEY=…` and `PUSH_WEB_PRIVATE_KEY=…`. The
+  private key stays on the server; the public key is given to browsers.
+- A malformed key or subject stops the application at start, without
+  printing the value; so does a private key that does not match the public
+  one.
+- Without the keys the application starts and warns once: browsers are
+  not registered, and nothing is sent.
+
+## Subscribe a browser
+
+The plugin adds no function: the application names its own and sets their
+rules. The browser first needs the public key, `push.publicKey`, which is
+`undefined` without keys.
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/push/src/functions.ts#key
+</include>
+
+`push.register(caller, { web })` saves the browser of the caller's session
+and returns `true`, or `false` without keys. `push.unregister(caller)`
+forgets it; none is no error.
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/push/src/functions.ts#subscribe
+</include>
+
+- A session has one device: registering again replaces it. A browser that
+  signs in to another account moves to it, and stops receiving the first
+  one's.
+- The caller needs a session: an anonymous caller, the Master key or
+  `asUser` is refused.
+- A malformed subscription is a `VALIDATION_FAILED`: its endpoint is an
+  `https:` URL on a public host, and its keys are the browser's.
+
+In the browser, a click asks the user, then subscribes with the key and
+saves the subscription. A front end serves the service worker at `/sw.js`.
+
+<include cwd meta='title="src/notifications.ts"'>
+	../examples/push/src/notifications.ts#subscribe
+</include>
+
+The service worker shows each push, and opens its `url` on a click. A
+later push with the same `tag` replaces the notification on screen.
+
+<include cwd meta='title="src/sw.ts"'>
+	../examples/push/src/sw.ts#worker
+</include>
+
+## Send
+
+`push.send(userIds, message, options?)` sends to every device of those
+users, and returns how many were `sent`, `gone` and `failed`. The
+application's jobs call it after their own filters, as a user's settings or
+blocks.
+
+<include cwd meta='title="src/functions.ts"'>
+	../examples/push/src/functions.ts#send
+</include>
+
+- `message` is `{ title, body, url?, tag?, data? }`, sent as JSON. Over
+  3993 bytes encoded, it throws before sending anything.
+- `ttl` is how long, in seconds, a push service keeps a push for an
+  offline device: one day unless set. `urgency` is `'very-low'`, `'low'`,
+  `'normal'` or `'high'`.
+- A device whose session ended is deleted without being sent to, and
+  counts as gone; so is one whose push service answers 404 or 410, as
+  for a browser that unsubscribed.
+- Any other failure is logged, with the push service's origin only, and
+  counted as failed. It is not retried: a late notification is often
+  wrong.
+
+## Testing
+
+`@ultimabase/push/testing` replaces the push services: `fakeWebPush()` keeps
+each push, decrypted as the browser reads it. `fake.subscription()` gives a
+new browser's subscription, which a test saves as the browser does.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/push/src/app.test.ts#fake
+</include>
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/push/src/app.test.ts#send-test
+</include>
+
+`gone(endpoint)` makes a push service answer 410, as for a browser that
+unsubscribed.
+
+<include cwd meta='title="src/app.test.ts"'>
+	../examples/push/src/app.test.ts#gone-test
+</include>
+
+The full example, with its tests: [`examples/push`](https://github.com/MrEkinox/ultimabase/tree/main/examples/push).

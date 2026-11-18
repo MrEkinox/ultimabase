@@ -3268,6 +3268,23 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/push@workspace:*, @ultimabase/push@workspace:packages/push":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/push@workspace:packages/push"
+  dependencies:
+    "@ultimabase/auth": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+  peerDependencies:
+    "@ultimabase/auth": ^1.0.0
+    ultimabase: ^1.0.0
+  bin:
+    push: ./src/cli.ts
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/realtime@workspace:*, @ultimabase/realtime@workspace:packages/realtime":
   version: 0.0.0-use.local
   resolution: "@ultimabase/realtime@workspace:packages/realtime"
@@ -4561,6 +4578,23 @@ __metadata:
     ultimabase: "workspace:*"
     vite: "npm:8.3.4"
     vitest: "npm:5.0.5"
+  languageName: unknown
+  linkType: soft
+
+"example-push@workspace:examples/push":
+  version: 0.0.0-use.local
+  resolution: "example-push@workspace:examples/push"
+  dependencies:
+    "@ultimabase/auth": "workspace:*"
+    "@ultimabase/http": "workspace:*"
+    "@ultimabase/password": "workspace:*"
+    "@ultimabase/push": "workspace:*"
+    "@ultimabase/rest": "workspace:*"
+    "@ultimabase/testing": "workspace:*"
+    ultimabase: "workspace:*"
+    vite: "npm:8.3.4"
+    vitest: "npm:5.0.5"
+    zod: "npm:4.6.7"
   languageName: unknown
   linkType: soft
 

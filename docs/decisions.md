@@ -25074,6 +25074,12 @@ plugin, with their own decision.
    refuses a malformed key or subject, without quoting the value. Without
    `web` the application starts and warns once:
    `pushPlugin() has no web keys: web devices are not registered and nothing is sent. Run npx @ultimabase/push keys.`
+   - `pushPlugin()` takes no argument too. `publicKey` and `privateKey`
+     both `undefined`, as from an environment without them, mean no keys;
+     one without the other is refused.
+   - The public key is a P-256 point, 65 bytes starting with `0x04`; the
+     private key is 32 bytes and must match it. The subject is checked
+     even without keys, and an unknown option is refused.
 3. Its own model (D-110), `PushDevice`, holds one device per session:
    - `kind`, `'web'` for now;
    - `user`, a relation to `AppUser` with `onDelete: 'cascade'` (D-333);
@@ -25087,10 +25093,19 @@ plugin, with their own decision.
    browser that signs in to another account stops receiving the first
    one's. A malformed subscription is a `VALIDATION_FAILED`. A caller
    without a session (anonymous, Master, `asUser`) is refused:
-   `push.register needs a caller signed in with a session (D-407).`
+   `push.register needs a caller signed in with a session.`
+   - The endpoint's host is neither a local name (`localhost`,
+     `*.localhost`) nor an IP address, so a client cannot make the server
+     post inside its network; a public name that resolves to a private
+     address is not checked. `p256dh` is a P-256 point, and `auth` 16
+     bytes.
+   - The device is written in one transaction at the default isolation:
+     two first registrations of one endpoint at once may fail one with
+     `UNIQUE_VIOLATION` (D-142), and the browser retries.
 5. `push.unregister(caller)` deletes the device of the caller's session;
    none is no error. A user who turns notifications off on one device
-   calls it from that device; the others keep receiving.
+   calls it from that device; the others keep receiving. It refuses a
+   caller without a session as `register` does, with its own name.
 6. `push.send(userIds, message, options?)` sends to every device of those
    users and returns `{ sent, gone, failed }`, counts.
    - `message`: `{ title, body, url?, tag?, data? }`, sent as JSON. Over
@@ -25099,21 +25114,33 @@ plugin, with their own decision.
    - `tag` is the notification that replaces an older one with the same
      tag: the service worker's `tag`, and Web Push's `Topic` header (the
      tag itself when it fits the header's 32 URL-safe characters, its
-     digest otherwise).
+     SHA-256 in base64url cut to 32 characters otherwise).
+   - A message too long, a `ttl` that is not an integer of 0 or more, or
+     an unknown `urgency` throws a plain `Error` before anything is sent:
+     they are the server code's mistakes.
+   - At most 32 pushes are in flight at once. Each post refuses redirects
+     and gives up after 10 seconds; its VAPID token lasts 12 hours.
    - A device whose session `liveSessions` (D-407) does not return is
      deleted without being sent to, and counts as gone; so is one whose
      endpoint answers 404 or 410.
    - Any other failure is logged and counted as failed, never retried: a
-     notification late by a retry is often wrong.
+     notification late by a retry is often wrong. The log names the push
+     service's origin only: an endpoint's path identifies a browser.
 7. The plugin adds no function, job or route, and no transport shows its
    model. The application's functions call `register` and `unregister`,
    with their own names and rules (as D-371 point 3), and its own jobs call
    `send` after their own filters (settings, blocks).
 8. `push.publicKey` is the web public key, or `undefined`: the function
-   that gives the browser its `applicationServerKey` returns it.
+   that gives the browser its `applicationServerKey` returns it. `push`
+   used while no application with `pushPlugin()` runs throws
+   `push.send runs while an application with pushPlugin() runs.`, with
+   the entry's name.
 9. `@ultimabase/push/testing` exports `fakeWebPush()`, which the tests use
    instead of the network: it keeps each push with its decrypted message,
    `gone(endpoint)` makes an endpoint answer 410, and `restore()` ends it.
+   `subscription()` gives a new browser's subscription, whose endpoint
+   is `https://push.example.test/<n>`; an endpoint it did not give
+   answers 404. Each push keeps its `ttl`, `urgency` and `topic`.
 10. `npx @ultimabase/push keys` prints a new pair, ready for an environment
     file, and writes nothing:
     `PUSH_WEB_PUBLIC_KEY=…` and `PUSH_WEB_PRIVATE_KEY=…`.

@@ -32,6 +32,7 @@
 		"jobs",
 		"sentry",
 		"stripe",
+		"push",
 		"---Transports---",
 		"http",
 		"graphql",
